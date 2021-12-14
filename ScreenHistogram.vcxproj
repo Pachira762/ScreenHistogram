@@ -152,37 +152,45 @@
     <ClInclude Include="App.h" />
     <ClInclude Include="AppConfig.h" />
     <ClInclude Include="AppWindow.h" />
-    <ClInclude Include="CaptureShink.h" />
+    <ClInclude Include="ColorPickPass.h" />
     <ClInclude Include="common.h" />
     <ClInclude Include="dutil.h" />
     <ClInclude Include="GraphPass.h" />
-    <ClInclude Include="CalcPass.h" />
-    <ClInclude Include="PassConfig.h" />
+    <ClInclude Include="ComputePass.h" />
+    <ClInclude Include="GuiBuilder.h" />
+    <ClInclude Include="OptionPanel.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="PipelineState.h" />
     <ClInclude Include="PlanePass.h" />
+    <ClInclude Include="Renderer.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="ScreenCapture.h" />
-    <ClInclude Include="ThemeManager.h" />
+    <ClInclude Include="Theme.h" />
     <ClInclude Include="util.h" />
-    <ClInclude Include="Viewer.h" />
+    <ClInclude Include="WindowCommon.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="App.cpp" />
     <ClCompile Include="AppConfig.cpp" />
     <ClCompile Include="AppWindow.cpp" />
+    <ClCompile Include="ColorPickPass.cpp" />
+    <ClCompile Include="common.cpp" />
     <ClCompile Include="GraphPass.cpp" />
-    <ClCompile Include="CalcPass.cpp" />
+    <ClCompile Include="ComputePass.cpp" />
+    <ClCompile Include="GuiBuilder.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="PassConfig.cpp" />
+    <ClCompile Include="OptionPanel.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="PipelineState.cpp" />
     <ClCompile Include="PlanePass.cpp" />
+    <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="ScreenCapture.cpp" />
-    <ClCompile Include="ThemeManager.cpp" />
+    <ClCompile Include="Theme.cpp" />
     <ClCompile Include="util.cpp" />
-    <ClCompile Include="Viewer.cpp" />
+    <ClCompile Include="WindowCommon.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders.hlsl">
@@ -192,6 +200,9 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="icon.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

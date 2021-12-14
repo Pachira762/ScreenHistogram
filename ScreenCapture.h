@@ -1,20 +1,28 @@
 #pragma once
-#include "CaptureShink.h"
 
 class ScreenCapture
 {
 public:
+	struct Result
+	{
+		bool	succeeded;
+		bool	mouseUpdated;
+		bool	screenUpdated;
+		UINT	accumulatedFrames;
+		winrt::com_ptr<ID3D11Texture2D> texture;
+	};
+
 	ScreenCapture();
 	~ScreenCapture();
 
-	bool	Initialize(CaptureShink* shink, winrt::com_ptr<ID3D11Device>& device);
-	void	Finalize();
-	void	Capture(int sleepTime);
+	void	Init(ID3D11Device* device);
+	Result	Capture(int timeout);
+	void	ReleaseCapture();
 
 private:
 	bool	initialized_ = false;
+	bool	captured_ = false;
 
-	CaptureShink* shink_;
 	winrt::com_ptr<IDXGIOutputDuplication> dupl_{ nullptr };
 };
 

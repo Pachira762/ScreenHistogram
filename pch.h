@@ -4,7 +4,14 @@
 #define USE_WINRTCOMPOSITION
 
 #include <memory>
+#include <vector>
+#include <set>
+#include <map>
+#include <tuple>
+#include <thread>
+#include <atomic>
 #include <functional>
+#include <algorithm>
 
 #include <Windows.h>
 #include <windowsx.h>
@@ -12,7 +19,9 @@
 #include <CommCtrl.h>
 #include <Uxtheme.h>
 #include <dxgi1_6.h>
-#include <d3d11.h>
+#include <d3d11_4.h>
+#include <d2d1_3.h>
+#include <dwrite_3.h>
 #include <d3dcompiler.h>
 #include <Unknwn.h>
 #include <inspectable.h>
@@ -40,6 +49,8 @@
 #pragma comment(lib, "UxTheme.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3d11.lib")
+#pragma comment(lib, "d2d1.lib")
+#pragma comment(lib, "dwrite.lib")
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "windowsapp.lib")
 

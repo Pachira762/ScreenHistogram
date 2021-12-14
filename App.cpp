@@ -2,20 +2,29 @@
 #include <chrono>
 #include "common.h"
 #include "dutil.h"
-#include "Viewer.h"
-#include "ScreenCapture.h"
-#include "AppWindow.h"
 #include "AppConfig.h"
+#include "AppWindow.h"
+#include "Renderer.h"
+#include "ScreenCapture.h"
+#include "PipelineState.h"
+#include "ComputePass.h"
+#include "PlanePass.h"
+#include "GraphPass.h"
+#include "ColorPickPass.h"
 
 using namespace ::std;
 using namespace ::winrt;
 
-static constexpr auto ConfigFileName = L"ScreenHistogram.ini";
-
 App::App():
+	config_(make_unique<AppConfig>(L"ScreenHistogram.ini")),
 	window_(make_unique<AppWindow>(this)),
+	renderer_(make_unique<Renderer>()),
 	capture_(make_unique<ScreenCapture>()),
-	viewer_(make_unique<Viewer>())
+	state_(make_unique<PipelineState>()),
+	computePass_(make_unique<ComputePass>()),
+	planePass_(make_unique<PlanePass>()),
+	graphPass_(make_unique<GraphPass>()),
+	colorPickPass_(make_unique<ColorPickPass>())
 {
 }
 
@@ -26,35 +35,35 @@ App::~App()
 bool App::Initialize()
 {
 	try {
-		AppConfig appConfig(ConfigFileName);
-		auto x = appConfig.WindowPosX.Load(100);
-		auto y = appConfig.WindowPosY.Load(100);
-		auto width = appConfig.WindowWidth.Load(800);
-		auto height = appConfig.WindowHeight.Load(600);
-		frameRate_ = max(1, appConfig.FrameRate.Load(60));
+		auto x = config_->WindowPosX.Load(100);
+		auto y = config_->WindowPosY.Load(100);
+		auto width = config_->WindowWidth.Load(800);
+		auto height = config_->WindowHeight.Load(600);
+		auto fps = config_->FrameRate.Load(60);
 
-		static ViewerConfig viewerConfig{};
-		viewerConfig.ResolutionLimit = appConfig.MaxResolution.Load(512);
-		viewerConfig.Opacity = appConfig.Opacity.Load(1.f);
-		viewerConfig.Scale = appConfig.Scale.Load(5.f);
+		auto histogramMode = clamp(config_->HistogramMode.Load(EHistogramMode::RGB), EHistogramMode::RGB, EHistogramMode::Saturation);
+		auto viewMode = clamp(config_->ViewMode.Load(EViewMode::Color), EViewMode::Color, EViewMode::Saturation);
+		auto colorPickMode = clamp(config_->ColorPickMode.Load(EColorPickMode::None), EColorPickMode::None, EColorPickMode::HSV);
+		auto maxResolution = config_->MaxResolution.Load(512);
+		auto opacity = config_->Opacity.Load(0.5f);
+		auto scale = config_->Scale.Load(5.f);
 
-		HWND hwnd = window_->Create(x, y, width, height);
-		if (!hwnd) {
-			DLOG(L"Failed create app window\n");
-			return false;
-		}
+		HWND hwnd = window_->Create(x, y, width, height, histogramMode, viewMode, scale, opacity);
+		WINRT_VERIFY(hwnd);
 
-		auto device = CreateD3DDevice(D3D_DRIVER_TYPE_HARDWARE);
+		renderer_->Init(hwnd);
+		capture_->Init(renderer_->Device());
+		state_->Init(renderer_->Device(), hwnd);
+		computePass_->Init(renderer_->Device(), *state_.get());
+		planePass_->Init(renderer_->Device(), *state_.get());
+		graphPass_->Init(renderer_->Device(), *state_.get());
+		colorPickPass_->Init(renderer_.get());
 
-		if (!viewer_->Init(hwnd, device, viewerConfig)) {
-			DLOG(L"Failed initialize Histogram\n");
-			return false;
-		}
-
-		if (!capture_->Initialize(viewer_.get(), device)) {
-			DLOG(L"Failed initialize Capture\n");
-			return false;
-		}
+		state_->SetOpacity(opacity);
+		state_->SetScale(scale);
+		state_->SetHistogramMode(histogramMode);
+		state_->SetViewMode(viewMode);
+		state_->SetMaxResolution(maxResolution);
 
 		bContinue_ = true;
 		bCapture_ = true;
@@ -64,7 +73,6 @@ bool App::Initialize()
 		return true;
 	}
 	catch (...) {
-		DLOG(L"Failed App::Initialize\n");
 		return false;
 	}
 }
@@ -75,13 +83,11 @@ void App::Finalize()
 		bContinue_ = false;
 		thread_.join();
 	}
-
-	capture_->Finalize();
 }
 
 void App::CaptureProcess(HWND hwnd)
 {
-	int sleepTime = 2000 / frameRate_;
+	auto sleepTime = chrono::milliseconds(2000 / config_->FrameRate);
 
 	while (bContinue_) {
 		if (!bCapture_) {
@@ -89,9 +95,65 @@ void App::CaptureProcess(HWND hwnd)
 			continue;
 		}
 
-		capture_->Capture(sleepTime);
-		//PostMessage(hwnd, WM_APP_CHECKTRANSPARENCY, 0, 0);
+		auto cap = capture_->Capture(500);
+		if (!cap.succeeded) {
+			this_thread::sleep_for(sleepTime);
+			continue;
+		}
+
+		if (!cap.screenUpdated) {
+			capture_->ReleaseCapture();
+			this_thread::sleep_for(sleepTime);
+			continue;
+		}
+
+		if (!state_->Update(renderer_->Device(), renderer_->Context(), cap.texture)) {
+			capture_->ReleaseCapture();
+			this_thread::sleep_for(sleepTime);
+			continue;
+		}
+
+		POINT cursor = {};
+		GetCursorPos(&cursor);
+
+		renderer_->BeginDraw(state_->Width(), state_->Height());
+
+		computePass_->AddPass(renderer_->Context(), *state_.get());
+		planePass_->AddPass(renderer_->Context(), *state_.get());
+		graphPass_->AddPass(renderer_->Context(), *state_.get());
+		colorPickPass_->AddPass(renderer_.get(), state_.get(), cap.texture.get(), cursor.x, cursor.y);
+		DrawCloseButton();
+
+		renderer_->EndDraw();
+		capture_->ReleaseCapture();
+		Sleep(0);
 	}
+}
+
+void App::DrawCloseButton()
+{
+	if (close_.state == EButtonState::None) {
+		return;
+	}
+
+	auto rt = renderer_->D2DRenderTarget();
+
+	float x = close_.x;
+	float y = close_.y;
+	float w = close_.w;
+	float h = close_.h;
+
+	com_ptr<ID2D1SolidColorBrush> brush{};
+	rt->CreateSolidColorBrush(D2D1::ColorF(close_.state == EButtonState::Hover ? 0xE81123 : 0xF16F7A, 1.f), brush.put());
+	rt->FillRectangle(D2D1::RectF(x, y, x + w, y + h), brush.get());
+
+	brush = {};
+	rt->CreateSolidColorBrush(D2D1::ColorF(0xCCCCCC, 1.f), brush.put());
+
+	float s = 0.333f;
+	float t = 1.f - s;
+	rt->DrawLine(D2D1::Point2F(x + s * w, y + s * h), D2D1::Point2F(x + t * w, y + t * h), brush.get(), 1.5f);
+	rt->DrawLine(D2D1::Point2F(x + s * w, y + t * h), D2D1::Point2F(x + t * w, y + s * h), brush.get(), 1.5f);
 }
 
 void App::OnCreate(HWND hwnd)
@@ -104,17 +166,18 @@ void App::OnClose()
 
 	auto rect = window_->GetRect();
 
-	AppConfig appConfig(ConfigFileName);
-	appConfig.WindowPosX.Save(rect.left);
-	appConfig.WindowPosY.Save(rect.top);
-	appConfig.WindowWidth.Save(rect.right - rect.left);
-	appConfig.WindowHeight.Save(rect.bottom - rect.top);
-	appConfig.FrameRate.Save(frameRate_);
+	config_->WindowPosX.Save(rect.left);
+	config_->WindowPosY.Save(rect.top);
+	config_->WindowWidth.Save(rect.right - rect.left);
+	config_->WindowHeight.Save(rect.bottom - rect.top);
+	config_->FrameRate.Save();
 
-	auto viewerConfig = viewer_->GetConfig();
-	appConfig.MaxResolution.Save(viewerConfig.ResolutionLimit);
-	appConfig.Opacity.Save(viewerConfig.Opacity);
-	appConfig.Scale.Save(viewerConfig.Scale);
+	config_->HistogramMode.Save(state_->HistogramMode());
+	config_->ViewMode.Save(state_->ViewMode());
+	config_->ColorPickMode.Save(state_->ColorPickMode());
+	config_->Opacity.Save(state_->Opacity());
+	config_->Scale.Save(state_->Scale());
+	config_->MaxResolution.Save();
 }
 
 void App::OnDestory()
@@ -134,4 +197,38 @@ void App::OnMoving()
 void App::OnMinimized()
 {
 	bCapture_ = false;
+}
+
+void App::SetHistogramMode(EHistogramMode mode)
+{
+	state_->SetHistogramMode(mode);
+}
+
+void App::SetViewMode(EViewMode mode)
+{
+	state_->SetViewMode(mode);
+}
+
+void App::SetScale(float scale)
+{
+	state_->SetScale(scale);
+}
+
+void App::SetOpacity(float opacity)
+{
+	state_->SetOpacity(opacity);
+}
+
+void App::SetColorPickMode(EColorPickMode mode)
+{
+	state_->SetColorPickMode(mode);
+}
+
+void App::SetCloseButtonState(int cx, int cy, int cw, int ch, EButtonState state)
+{
+	close_.x = cx;
+	close_.y = cy;
+	close_.w = cw;
+	close_.h = ch;
+	close_.state = state;
 }

@@ -8,13 +8,15 @@ struct Vertex
 	float	v;
 };
 
-void PlanePass::Init(winrt::com_ptr<ID3D11Device>& device, winrt::com_ptr<ID3D11Buffer>& histogramBuffer)
+void PlanePass::Init(ID3D11Device* device, PipelineState& state)
 {
 	D3D11_INPUT_ELEMENT_DESC elems[] = {
 		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
 	};
 	vs_ = CreateVertexShader(device, IDR_SHADER1, "PlaneVS", elems, _countof(elems), layout_.put());
-	ps_ = CreatePixelShader(device, IDR_SHADER1, "PlanePS");
+	colorPs_ = CreatePixelShader(device, IDR_SHADER1, "ColorPlanePS");
+	brightnessPs_ = CreatePixelShader(device, IDR_SHADER1, "BrightnessPlanePS");
+	saturationPs_ = CreatePixelShader(device, IDR_SHADER1, "SaturationPlanePS");
 
 	Vertex vertexs[6] = {
 			{0.f, 0.f},
@@ -27,16 +29,29 @@ void PlanePass::Init(winrt::com_ptr<ID3D11Device>& device, winrt::com_ptr<ID3D11
 	};
 
 	vertexBuffer_ = CreateVertexBuffer(device, 6, sizeof(Vertex), vertexs);
-	histogramSrv_ = CreateShaderResourceView(device, histogramBuffer, 16, 256);
 }
 
-void PlanePass::AddPass(winrt::com_ptr<ID3D11DeviceContext>& context, const PassConfig& config)
+void PlanePass::AddPass(ID3D11DeviceContext* context, PipelineState& state)
 {
-	ID3D11ShaderResourceView* srvs[] = { histogramSrv_.get() };
+	if (state.ViewMode() == EViewMode::Color) {
+		return;
+	}
 
 	context->VSSetShader(vs_.get(), nullptr, 0);
-	context->PSSetShader(ps_.get(), nullptr, 0);
-	context->PSSetShaderResources(1, _countof(srvs), srvs);
+
+	switch (state.ViewMode()) {
+	case EViewMode::Color:
+		context->PSSetShader(colorPs_.get(), nullptr, 0);
+		break;
+
+	case EViewMode::Brightness:
+		context->PSSetShader(brightnessPs_.get(), nullptr, 0);
+		break;
+
+	case EViewMode::Saturation:
+		context->PSSetShader(saturationPs_.get(), nullptr, 0);
+		break;
+	}
 
 	context->IASetInputLayout(layout_.get());
 	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -46,7 +61,4 @@ void PlanePass::AddPass(winrt::com_ptr<ID3D11DeviceContext>& context, const Pass
 	UINT offsets[] = { 0 };
 	context->IASetVertexBuffers(0, _countof(vbs), vbs, strides, offsets);
 	context->Draw(6, 0);
-
-	srvs[0] = nullptr;
-	context->PSSetShaderResources(1, _countof(srvs), srvs);
 }

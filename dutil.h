@@ -6,30 +6,29 @@ inline auto CreateD3DDevice(D3D_DRIVER_TYPE type)
 {
     winrt::com_ptr<ID3D11Device>   device{ nullptr };
 
-    UINT flag = 0;
+    UINT flag = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
 #ifdef _DEBUG
     flag |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
     winrt::check_hresult(D3D11CreateDevice(nullptr, type, NULL, flag, nullptr, 0, D3D11_SDK_VERSION, device.put(), nullptr, nullptr));
 
-    return device;
+    return device.as<ID3D11Device5>();
 }
 
-inline auto CreateD3DDeviceContext(winrt::com_ptr<ID3D11Device> device)
+inline auto CreateD3DDeviceContext(ID3D11Device* device)
 {
     winrt::com_ptr<ID3D11DeviceContext> context{ nullptr };
     device->GetImmediateContext(context.put());
-    return context;
+    return context.as<ID3D11DeviceContext4>();
 }
 
-inline auto CreateSwapChainForHwnd(winrt::com_ptr<ID3D11Device> device, HWND hwnd, int width, int height, DXGI_FORMAT format)
+inline auto CreateSwapChainForHwnd(winrt::com_ptr<IDXGIDevice> device, HWND hwnd, int width, int height, DXGI_FORMAT format)
 {
-    auto dxgiDevice = device.as<IDXGIDevice2>();
     winrt::com_ptr<IDXGIAdapter> adapter;
-    winrt::check_hresult(dxgiDevice->GetParent(winrt::guid_of<IDXGIAdapter>(), adapter.put_void()));
+    winrt::check_hresult(device->GetParent(__uuidof(*adapter), adapter.put_void()));
 
     winrt::com_ptr<IDXGIFactory2> factory{ nullptr };
-    winrt::check_hresult(adapter->GetParent(winrt::guid_of<IDXGIFactory2>(), factory.put_void()));
+    winrt::check_hresult(adapter->GetParent(__uuidof(*factory), factory.put_void()));
 
     winrt::com_ptr<IDXGISwapChain1> swapChain{ nullptr };
     DXGI_SWAP_CHAIN_DESC1 desc = {};
@@ -48,14 +47,13 @@ inline auto CreateSwapChainForHwnd(winrt::com_ptr<ID3D11Device> device, HWND hwn
     return swapChain;
 }
 
-inline auto CreateSwapChainForComposition(winrt::com_ptr<ID3D11Device> device, int width, int height, DXGI_FORMAT format)
+inline auto CreateSwapChainForComposition(winrt::com_ptr<IDXGIDevice> device, int width, int height, DXGI_FORMAT format)
 {
-    auto dxgiDevice = device.as<IDXGIDevice2>();
     winrt::com_ptr<IDXGIAdapter> adapter;
-    winrt::check_hresult(dxgiDevice->GetParent(winrt::guid_of<IDXGIAdapter>(), adapter.put_void()));
+    winrt::check_hresult(device->GetParent(__uuidof(*adapter), adapter.put_void()));
 
     winrt::com_ptr<IDXGIFactory2> factory{ nullptr };
-    winrt::check_hresult(adapter->GetParent(winrt::guid_of<IDXGIFactory2>(), factory.put_void()));
+    winrt::check_hresult(adapter->GetParent(__uuidof(*factory), factory.put_void()));
 
     winrt::com_ptr<IDXGISwapChain1> swapChain{ nullptr };
     DXGI_SWAP_CHAIN_DESC1 desc = {};
@@ -74,17 +72,21 @@ inline auto CreateSwapChainForComposition(winrt::com_ptr<ID3D11Device> device, i
     return swapChain;
 }
 
-inline auto CreateRenderTargetViewForBackbuffer(winrt::com_ptr<ID3D11Device>& device, winrt::com_ptr<IDXGISwapChain1>& swapChain)
+inline auto CreateRenderTargetView(ID3D11Device* device, ID3D11Resource* backbuffer)
 {
-    winrt::com_ptr<ID3D11Texture2D> backbuffer{ nullptr };
-    winrt::check_hresult(swapChain->GetBuffer(0, winrt::guid_of<ID3D11Texture2D>(), backbuffer.put_void()));
-
     winrt::com_ptr<ID3D11RenderTargetView> view{ nullptr };
-    winrt::check_hresult(device->CreateRenderTargetView(backbuffer.get(), nullptr, view.put()));
+    winrt::check_hresult(device->CreateRenderTargetView(backbuffer, nullptr, view.put()));
     return view;
 }
 
-inline auto CreateRasterizerState(winrt::com_ptr<ID3D11Device> device)
+inline auto CreateRenderTargetView(ID3D11Device* device, IDXGISwapChain* swapChain)
+{
+    winrt::com_ptr<ID3D11Texture2D> backbuffer{ nullptr };
+    winrt::check_hresult(swapChain->GetBuffer(0, __uuidof(*backbuffer), backbuffer.put_void()));
+    return CreateRenderTargetView(device, backbuffer.get());
+}
+
+inline auto CreateRasterizerState(ID3D11Device* device)
 {
     D3D11_RASTERIZER_DESC desc = {};
     desc.FillMode = D3D11_FILL_SOLID;
@@ -109,7 +111,7 @@ inline auto CreateViewport(int width, int height)
     return viewport;
 }
 
-inline auto CreateBlendState(winrt::com_ptr<ID3D11Device>& device)
+inline auto CreateBlendState(ID3D11Device* device)
 {
     D3D11_BLEND_DESC desc = {};
     desc.AlphaToCoverageEnable = FALSE;
@@ -128,7 +130,7 @@ inline auto CreateBlendState(winrt::com_ptr<ID3D11Device>& device)
     return state;
 }
 
-inline auto CreateSamplerState(winrt::com_ptr<ID3D11Device>& device, D3D11_FILTER filter = D3D11_FILTER_MIN_MAG_MIP_POINT, D3D11_TEXTURE_ADDRESS_MODE address = D3D11_TEXTURE_ADDRESS_WRAP)
+inline auto CreateSamplerState(ID3D11Device* device, D3D11_FILTER filter = D3D11_FILTER_MIN_MAG_MIP_POINT, D3D11_TEXTURE_ADDRESS_MODE address = D3D11_TEXTURE_ADDRESS_WRAP)
 {
     D3D11_SAMPLER_DESC desc{};
     desc.Filter = filter;
@@ -175,7 +177,7 @@ inline auto CompileShaderFromResource(LPCTSTR name, LPCSTR entry, LPCSTR target)
     return bin;
 }
 
-inline auto CreateVertexShader(winrt::com_ptr<ID3D11Device>& device, int resourceId, LPCSTR entry, const D3D11_INPUT_ELEMENT_DESC* elements, UINT numElements, ID3D11InputLayout** inputLayout)
+inline auto CreateVertexShader(ID3D11Device* device, int resourceId, LPCSTR entry, const D3D11_INPUT_ELEMENT_DESC* elements = nullptr, UINT numElements = 0, ID3D11InputLayout** inputLayout = nullptr)
 {
     auto bin = CompileShaderFromResource(MAKEINTRESOURCE(resourceId), entry, "vs_5_0");
     winrt::com_ptr<ID3D11VertexShader> vs{ nullptr };
@@ -188,7 +190,7 @@ inline auto CreateVertexShader(winrt::com_ptr<ID3D11Device>& device, int resourc
     return vs;
 }
 
-inline auto CreatePixelShader(winrt::com_ptr<ID3D11Device>& device, int resourceId, LPCSTR entry)
+inline auto CreatePixelShader(ID3D11Device* device, int resourceId, LPCSTR entry)
 {
     auto bin = CompileShaderFromResource(MAKEINTRESOURCE(resourceId), entry, "ps_5_0");
     winrt::com_ptr<ID3D11PixelShader> ps{ nullptr };
@@ -196,7 +198,7 @@ inline auto CreatePixelShader(winrt::com_ptr<ID3D11Device>& device, int resource
     return ps;
 }
 
-inline auto CreateComputeShader(winrt::com_ptr<ID3D11Device>& device, int resourceId, LPCSTR entry)
+inline auto CreateComputeShader(ID3D11Device* device, int resourceId, LPCSTR entry)
 {
     auto bin = CompileShaderFromResource(MAKEINTRESOURCE(resourceId), entry, "cs_5_0");
     winrt::com_ptr<ID3D11ComputeShader> cs{ nullptr };
@@ -204,7 +206,7 @@ inline auto CreateComputeShader(winrt::com_ptr<ID3D11Device>& device, int resour
     return cs;
 }
 
-inline auto CreateBuffer(winrt::com_ptr<ID3D11Device>& device, int size, int stride, D3D11_USAGE usage, UINT bindFlag, UINT cpuAccess, const void* initial)
+inline auto CreateBuffer(ID3D11Device* device, int size, int stride, D3D11_USAGE usage, UINT bindFlag, UINT cpuAccess, const void* initial)
 {
     D3D11_BUFFER_DESC desc{};
     desc.ByteWidth = size;
@@ -223,7 +225,7 @@ inline auto CreateBuffer(winrt::com_ptr<ID3D11Device>& device, int size, int str
     return buffer;
 }
 
-inline auto CreateVertexBuffer(winrt::com_ptr<ID3D11Device>& device, int num, int stride, const void* src)
+inline auto CreateVertexBuffer(ID3D11Device* device, int num, int stride, const void* src)
 {
     D3D11_BUFFER_DESC desc = {};
     desc.ByteWidth = stride * num;
@@ -241,13 +243,13 @@ inline auto CreateVertexBuffer(winrt::com_ptr<ID3D11Device>& device, int num, in
     return buff;
 }
 
-inline auto CreateConstantBuffer(winrt::com_ptr<ID3D11Device>& device, int stride, int num = 1)
+inline auto CreateConstantBuffer(ID3D11Device* device, int stride, int num = 1)
 {
     D3D11_BUFFER_DESC desc = {};
     desc.ByteWidth = stride;
-    desc.Usage = D3D11_USAGE_DYNAMIC;
+    desc.Usage = D3D11_USAGE_DEFAULT;
     desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    desc.CPUAccessFlags = 0;
     desc.StructureByteStride = stride * num;
     
     winrt::com_ptr<ID3D11Buffer> buff{ nullptr };
@@ -255,7 +257,7 @@ inline auto CreateConstantBuffer(winrt::com_ptr<ID3D11Device>& device, int strid
     return buff;
 }
 
-inline auto CreateUnorderedAccessBuffer(winrt::com_ptr<ID3D11Device>& device, int stride, int num, UINT exBindFlag = 0, UINT misc = 0)
+inline auto CreateUnorderedAccessBuffer(ID3D11Device* device, int stride, int num, UINT exBindFlag = 0, UINT misc = 0)
 {
     D3D11_BUFFER_DESC desc = {};
     desc.ByteWidth = stride * num;
@@ -270,7 +272,7 @@ inline auto CreateUnorderedAccessBuffer(winrt::com_ptr<ID3D11Device>& device, in
     return buff;
 }
 
-inline auto CreateTexture2D(winrt::com_ptr<ID3D11Device>& device, int width, int height, DXGI_FORMAT format, D3D11_USAGE usage, UINT bindFlag, UINT cpuAccess = 0, const void* src = nullptr, int pitch = 0)
+inline auto CreateTexture2D(ID3D11Device* device, int width, int height, DXGI_FORMAT format, D3D11_USAGE usage, UINT bindFlag, UINT cpuAccess = 0, const void* src = nullptr, int pitch = 0)
 {
     D3D11_TEXTURE2D_DESC desc{};
     desc.Width = width;
@@ -294,7 +296,7 @@ inline auto CreateTexture2D(winrt::com_ptr<ID3D11Device>& device, int width, int
     return texture;
 }
 
-inline auto CreateShaderResourceView(winrt::com_ptr<ID3D11Device>& device, winrt::com_ptr<ID3D11Buffer>& buffer, int elemSize, int elemNum, DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN)
+inline auto CreateShaderResourceView(ID3D11Device* device, winrt::com_ptr<ID3D11Buffer>& buffer, int elemSize, int elemNum, DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN)
 {
     D3D11_BUFFER_DESC desc = {};
     buffer->GetDesc(&desc);
@@ -310,7 +312,7 @@ inline auto CreateShaderResourceView(winrt::com_ptr<ID3D11Device>& device, winrt
     return srv;
 }
 
-inline auto CreateShaderResourceView(winrt::com_ptr<ID3D11Device>& device, winrt::com_ptr<ID3D11Texture2D>& texture)
+inline auto CreateShaderResourceView(ID3D11Device* device, winrt::com_ptr<ID3D11Texture2D>& texture)
 {
     D3D11_TEXTURE2D_DESC desc = {};
     texture->GetDesc(&desc);
@@ -325,7 +327,7 @@ inline auto CreateShaderResourceView(winrt::com_ptr<ID3D11Device>& device, winrt
     return srv;
 }
 
-inline auto CreateUnorderedAccessView(winrt::com_ptr<ID3D11Device>& device, winrt::com_ptr<ID3D11Buffer>& buffer, int numElems, DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN)
+inline auto CreateUnorderedAccessView(ID3D11Device* device, winrt::com_ptr<ID3D11Buffer>& buffer, int numElems, DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN)
 {
     D3D11_BUFFER_DESC desc = {};
     buffer->GetDesc(&desc);
@@ -340,7 +342,7 @@ inline auto CreateUnorderedAccessView(winrt::com_ptr<ID3D11Device>& device, winr
     return uav;
 }
 
-inline auto CreateUnorderedAccessView(winrt::com_ptr<ID3D11Device>& device, winrt::com_ptr<ID3D11Texture2D>& tex)
+inline auto CreateUnorderedAccessView(ID3D11Device* device, winrt::com_ptr<ID3D11Texture2D>& tex)
 {
     D3D11_TEXTURE2D_DESC desc = {};
     tex->GetDesc(&desc);
@@ -354,13 +356,18 @@ inline auto CreateUnorderedAccessView(winrt::com_ptr<ID3D11Device>& device, winr
     return uav;
 }
 
-inline void WriteResource(winrt::com_ptr<ID3D11DeviceContext>& context, ID3D11Resource* resource, const void* src, const int size)
+inline void WriteResource(ID3D11DeviceContext* context, ID3D11Resource* resource, const void* src, const int size)
 {
     D3D11_MAPPED_SUBRESOURCE mapped = {};
     winrt::check_hresult(context->Map(resource, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped));
 
     memcpy_s(mapped.pData, size, src, size);
     context->Unmap(resource, 0);
+}
+
+inline void UpdateResource(ID3D11DeviceContext* context, winrt::com_ptr<ID3D11Buffer>& buffer, const void* src, const int size)
+{
+    context->UpdateSubresource(buffer.get(), 0, nullptr, src, size, size);
 }
 
 template<class DescTy, class ObjTy>
@@ -376,20 +383,20 @@ inline auto GetDXGIInterfaceFromObject(winrt::Windows::Foundation::IInspectable 
 {
     auto access = object.as<::Windows::Graphics::DirectX::Direct3D11::IDirect3DDxgiInterfaceAccess>();
     winrt::com_ptr<T> result;
-    winrt::check_hresult(access->GetInterface(winrt::guid_of<T>(), result.put_void()));
+    winrt::check_hresult(access->GetInterface(__uuidof(*result), result.put_void()));
     return result;
 }
 
-//
-// Direct Composition
-//
 #ifdef USE_DIRECTCOMPOSITION
-inline auto CreateCompositionDevice(winrt::com_ptr<ID3D11Device>& d3dDevice)
+//
+// DirectComposition
+//
+inline auto CreateCompositionDevice(ID3D11Device* d3dDevice)
 {
     auto dxgiDevice = d3dDevice.as<IDXGIDevice2>();
 
     winrt::com_ptr<IDCompositionDevice> device{ nullptr };
-    winrt::check_hresult(DCompositionCreateDevice(dxgiDevice.get(), winrt::guid_of<IDCompositionDevice>(), device.put_void()));
+    winrt::check_hresult(DCompositionCreateDevice(dxgiDevice.get(), __uuidof(*device), device.put_void()));
     return device;
 }
 
@@ -406,7 +413,11 @@ inline auto CreateCompositionVisual(winrt::com_ptr<IDCompositionDevice>& device)
     winrt::check_hresult(device->CreateVisual(visual.put()));
     return visual;
 }
+
 #else defined USE_WINRTCOMPOSITION
+//
+// WinRT.UI.Composition
+//
 inline auto CreateDispatcherQueueController()
 {
     namespace abi = ABI::Windows::System;
@@ -426,7 +437,6 @@ inline auto CreateDispatcherQueueController()
 inline auto CreateDesktopWindowTarget(winrt::Windows::UI::Composition::Compositor& compositor, HWND hwnd)
 {
     namespace abi = ABI::Windows::UI::Composition::Desktop;
-
     auto interop = compositor.as<abi::ICompositorDesktopInterop>();
     winrt::Windows::UI::Composition::Desktop::DesktopWindowTarget target{ nullptr };
     winrt::check_hresult(interop->CreateDesktopWindowTarget(hwnd, false, reinterpret_cast<abi::IDesktopWindowTarget**>(winrt::put_abi(target))));
@@ -435,15 +445,71 @@ inline auto CreateDesktopWindowTarget(winrt::Windows::UI::Composition::Composito
 
 inline auto CreateCompositionSurfaceForSwapChain(winrt::Windows::UI::Composition::Compositor& compositor, ::IUnknown* swapChain)
 {
-    winrt::Windows::UI::Composition::ICompositionSurface surface{ nullptr };
+    using ICompositionSurface = winrt::Windows::UI::Composition::ICompositionSurface;
+    ICompositionSurface surface{ nullptr };
     auto compositorInterop = compositor.as<ABI::Windows::UI::Composition::ICompositorInterop>();
     winrt::com_ptr<ABI::Windows::UI::Composition::ICompositionSurface> surfaceInterop;
     winrt::check_hresult(compositorInterop->CreateCompositionSurfaceForSwapChain(swapChain, surfaceInterop.put()));
-    winrt::check_hresult(surfaceInterop->QueryInterface(winrt::guid_of<winrt::Windows::UI::Composition::ICompositionSurface>(), reinterpret_cast<void**>(winrt::put_abi(surface))));
+    winrt::check_hresult(surfaceInterop->QueryInterface(winrt::guid_of<ICompositionSurface>(), reinterpret_cast<void**>(winrt::put_abi(surface))));
     return surface;
 }
-
 #endif
+
+//
+// Direct2D
+//
+inline auto CreateD2DFactory(D2D1_FACTORY_TYPE type = D2D1_FACTORY_TYPE_SINGLE_THREADED)
+{
+    winrt::com_ptr<ID2D1Factory> factory{};
+    winrt::check_hresult(D2D1CreateFactory(type, factory.put()));
+    return factory.as<ID2D1Factory7>();
+}
+
+inline auto CreateD2DDevice(ID2D1Factory1* factory, IDXGIDevice* dxgiDevice)
+{
+    winrt::com_ptr<ID2D1Device> device{};
+    winrt::check_hresult(factory->CreateDevice(dxgiDevice, device.put()));
+    return device.as<ID2D1Device6>();
+}
+
+inline auto CreateD2DRenderTarget(ID2D1Factory* factory, IDXGISurface* surface, float dpiX = 96.f, float dpiY = 96.f)
+{
+    winrt::com_ptr<ID2D1RenderTarget> renderTarget{};
+    auto props = D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED), dpiX, dpiY);
+    winrt::check_hresult(factory->CreateDxgiSurfaceRenderTarget(surface, props, renderTarget.put()));
+    return renderTarget;
+}
+
+inline auto CreateD2DRenderTarget(ID2D1Factory* factory, IDXGISwapChain* swapChain, float dpiX = 96.f, float dpiY = 96.f)
+{
+    winrt::com_ptr<IDXGISurface> backbuffer{};
+    winrt::check_hresult(swapChain->GetBuffer(0, __uuidof(*backbuffer), backbuffer.put_void()));
+    return CreateD2DRenderTarget(factory, backbuffer.get(), dpiX, dpiY);
+}
+
+inline auto CreateD2DColorBrush(ID2D1RenderTarget* renderTarget, UINT32 color, float alpha = 1.f)
+{
+    winrt::com_ptr<ID2D1SolidColorBrush> brush{};
+    renderTarget->CreateSolidColorBrush(D2D1::ColorF(color, alpha), brush.put());
+    return brush;
+}
+
+//
+// DirectWrite
+//
+inline auto CreateDWriteFactory(DWRITE_FACTORY_TYPE type = DWRITE_FACTORY_TYPE_SHARED)
+{
+    winrt::com_ptr<IDWriteFactory7> factory{};
+    winrt::check_hresult(DWriteCreateFactory(type, __uuidof(*factory), reinterpret_cast<IUnknown**>(factory.put_void())));
+    return factory;
+}
+
+inline auto CreateDWriteTextFormat(IDWriteFactory* factory, LPCWSTR fontName, float size = 24.f, DWRITE_FONT_WEIGHT weight = DWRITE_FONT_WEIGHT_REGULAR, DWRITE_FONT_STYLE style = DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH stretch = DWRITE_FONT_STRETCH_NORMAL, LPCWSTR location = nullptr)
+{
+    winrt::com_ptr<IDWriteTextFormat> textFormat;
+    winrt::check_hresult(factory->CreateTextFormat(fontName, nullptr, weight,style,stretch, size, location ? location : L"ja-JP", textFormat.put()));
+    return textFormat.as<IDWriteTextFormat3>();
+}
 
 inline int DivideAndRoundUp(int dividend, int divisor)
 {

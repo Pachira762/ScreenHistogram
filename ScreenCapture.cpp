@@ -10,13 +10,16 @@ ScreenCapture::ScreenCapture()
 
 ScreenCapture::~ScreenCapture()
 {
+	if (captured_) {
+		dupl_->ReleaseFrame();
+		captured_ = false;
+	}
 }
 
-bool ScreenCapture::Initialize(CaptureShink* shink, winrt::com_ptr<ID3D11Device>& device)
+void ScreenCapture::Init(ID3D11Device* device)
 {
-	shink_ = shink;
-
-	auto dxgiDevice = device.as<IDXGIDevice>();
+	com_ptr<IDXGIDevice> dxgiDevice{ nullptr };
+	check_hresult(device->QueryInterface<IDXGIDevice>(dxgiDevice.put()));
 
 	com_ptr<IDXGIAdapter> adapter{ nullptr };
 	check_hresult(dxgiDevice->GetAdapter(adapter.put()));
@@ -25,53 +28,45 @@ bool ScreenCapture::Initialize(CaptureShink* shink, winrt::com_ptr<ID3D11Device>
 	check_hresult(adapter->EnumOutputs(0, output.put()));
 
 	auto output1 = output.as<IDXGIOutput1>();
-	check_hresult(output1->DuplicateOutput(device.get(), dupl_.put()));
+	check_hresult(output1->DuplicateOutput(device, dupl_.put()));
 
 	initialized_ = true;
-
-	return true;
 }
 
-void ScreenCapture::Finalize()
-{
-	initialized_ = false;
-}
-
-void ScreenCapture::Capture(int sleepTime)
+ScreenCapture::Result ScreenCapture::Capture(int timeout)
 {
 	if (!initialized_) {
-		Sleep(sleepTime); // avoid busy wait
-		return;
+		return {false};
+	}
+
+	if (captured_) {
+		dupl_->ReleaseFrame();
+		captured_ = false;
 	}
 
 	DXGI_OUTDUPL_FRAME_INFO info{};
 	com_ptr<IDXGIResource> resource{ nullptr };
 	HRESULT hr = dupl_->AcquireNextFrame(500, &info, resource.put());
-
 	if (FAILED(hr)) {
-		Sleep(sleepTime);
-		return;
+		return {false};
 	}
 
-	if (info.AccumulatedFrames == 0) {
-		if (info.LastMouseUpdateTime.QuadPart == 0) {
-			Sleep(sleepTime);
-		}
-		else {
-			Sleep(sleepTime / 2);
-		}
-	}
-	else {
-		shink_->Shink(resource.as<ID3D11Texture2D>());
+	captured_ = true;
 
-		if (info.AccumulatedFrames == 1) {
-			Sleep(0);
-		}
-		else{
-			// drop some frame
-		}
-	}
+	Result ret;
+	ret.succeeded = true;
+	ret.mouseUpdated = info.LastMouseUpdateTime.QuadPart != 0;
+	ret.screenUpdated = info.LastPresentTime.QuadPart != 0;
+	ret.accumulatedFrames = info.AccumulatedFrames;
+	ret.texture = resource.as<ID3D11Texture2D>();
 
-	dupl_->ReleaseFrame();
+	return ret;
 }
 
+void ScreenCapture::ReleaseCapture()
+{
+	if (dupl_ && captured_) {
+		dupl_->ReleaseFrame();
+		captured_ = false;
+	}
+}
