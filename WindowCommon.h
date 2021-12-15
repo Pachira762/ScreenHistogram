@@ -2,12 +2,13 @@
 
 RECT GetAdjustedWindowRect(DWORD style, DWORD styleEx = 0, BOOL menu = FALSE);
 
-static constexpr int PanelWidth = 200;
-static const RECT FrameSize = { -GetAdjustedWindowRect(WS_OVERLAPPEDWINDOW).left, GetAdjustedWindowRect(WS_OVERLAPPEDWINDOW).bottom, GetAdjustedWindowRect(WS_OVERLAPPEDWINDOW).right,GetAdjustedWindowRect(WS_OVERLAPPEDWINDOW).bottom };
-static const RECT DragSize = { -GetAdjustedWindowRect(WS_OVERLAPPEDWINDOW).top,-GetAdjustedWindowRect(WS_OVERLAPPEDWINDOW).top ,-GetAdjustedWindowRect(WS_OVERLAPPEDWINDOW).top ,-GetAdjustedWindowRect(WS_OVERLAPPEDWINDOW).top };
-static const int TitleHeight = -GetAdjustedWindowRect(WS_OVERLAPPEDWINDOW).top;
-static const int CloseButtonSize = -GetAdjustedWindowRect(WS_OVERLAPPEDWINDOW).top;
-static const int VScrollWidth = GetSystemMetrics(SM_CXVSCROLL);
+inline const RECT FrameSize = { -GetAdjustedWindowRect(WS_OVERLAPPEDWINDOW).left, GetAdjustedWindowRect(WS_OVERLAPPEDWINDOW).bottom, GetAdjustedWindowRect(WS_OVERLAPPEDWINDOW).right,GetAdjustedWindowRect(WS_OVERLAPPEDWINDOW).bottom };
+inline const RECT DragSize = { -GetAdjustedWindowRect(WS_OVERLAPPEDWINDOW).top,-GetAdjustedWindowRect(WS_OVERLAPPEDWINDOW).top ,-GetAdjustedWindowRect(WS_OVERLAPPEDWINDOW).top ,-GetAdjustedWindowRect(WS_OVERLAPPEDWINDOW).top };
+inline const int TitleHeight = -GetAdjustedWindowRect(WS_OVERLAPPEDWINDOW).top;
+inline const int CloseButtonSize = -GetAdjustedWindowRect(WS_OVERLAPPEDWINDOW).top;
+inline const int VScrollWidth = GetSystemMetrics(SM_CXVSCROLL);
+
+#define DPISCALE(x, dpi) (((x)*dpi)/96)
 
 inline POINT GetCursorPos()
 {
@@ -58,7 +59,7 @@ inline RECT GetAdjustedWindowRect(DWORD style, DWORD styleEx, BOOL menu)
     return rc;
 }
 
-inline HRESULT NonClientHitTest(HWND hwnd, int x, int y)
+inline HRESULT NonClientHitTest(HWND hwnd, int x, int y, int dpi)
 {
     const auto rc = GetWindowRect(hwnd);
     int row = 1;
@@ -106,6 +107,6 @@ int VScrollProc(HWND scroll, WPARAM wp, int bar = SB_VERT);
 
 int UpdateScroll(HWND scroll, int page, int range = -1, int bar = SB_VERT);
 
-HRESULT NonClientHitTest(HWND hwnd, int x, int y);
+HRESULT NonClientHitTest(HWND hwnd, int x, int y, int dpi);
 
-LRESULT	DrawRadioButton(NMCUSTOMDRAW* nmc);
+LRESULT	DrawRadioButton(NMCUSTOMDRAW* nmc, int dpi);

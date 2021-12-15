@@ -5,15 +5,16 @@
 
 using namespace std;
 
-GuiBuilderImpl::GuiBuilderImpl(HWND hwnd, const RECT& margin) :
+GuiBuilderImpl::GuiBuilderImpl(HWND hwnd, const RECT& margin, int dpi) :
     hwnd_(hwnd),
     tree_(GetClientRect(hwnd)),
-    hdc_(GetDC(hwnd))
+    hdc_(GetDC(hwnd)),
+    dpi_(dpi)
 {
-    tree_.left += margin.left;
-    tree_.top += margin.top;
-    tree_.right -= margin.right;
-    tree_.bottom -= margin.bottom;
+    tree_.left += DPISCALE(margin.left, dpi_);
+    tree_.top += DPISCALE(margin.top, dpi_);
+    tree_.right -= DPISCALE(margin.right, dpi_);
+    tree_.bottom -= DPISCALE(margin.bottom, dpi_);
 }
 
 GuiBuilderImpl::~GuiBuilderImpl()
@@ -30,7 +31,7 @@ void GuiBuilderImpl::Build()
 
 void GuiBuilderImpl::AddBlank(int height)
 {
-    tree_.top += height;
+    tree_.top += DPISCALE(height, dpi_);
 }
 
 void GuiBuilderImpl::AddText(LPCTSTR text)
@@ -39,7 +40,7 @@ void GuiBuilderImpl::AddText(LPCTSTR text)
     SelectObject(hdc_, Theme::TextFont);
     DrawText(hdc_, text, -1, &layout, DT_CALCRECT);
 
-    tree_.top += (layout.bottom - layout.top);
+    tree_.top += DPISCALE(layout.bottom - layout.top, dpi_);
 
     if (OnTextAdded) {
         OnTextAdded(text, layout);
@@ -52,8 +53,8 @@ void GuiBuilderImpl::AddLabel(LPCTSTR text)
     SelectObject(hdc_, Theme::LabelFont);
     DrawText(hdc_, text, -1, &layout, DT_SINGLELINE | DT_CALCRECT);
 
-    tree_.top += (layout.bottom - layout.top);
-    tree_.top += 4;
+    //tree_.top += DPISCALE((layout.bottom - layout.top) + 4, dpi_);
+    tree_.top += (layout.bottom - layout.top) + DPISCALE(4, dpi_);
 
     if (OnLabelAdded) {
         OnLabelAdded(text, layout);
@@ -67,7 +68,7 @@ void GuiBuilderImpl::AddRadioButtons(const std::vector<LPCTSTR>& options, int in
 
     for (int i = 0; i < options.size(); ++i) {
         HWND radio = CreateWindowEx(0, L"BUTTON", options[i], WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON | (isTop ? (WS_GROUP | WS_TABSTOP) : 0),
-            tree_.left, tree_.top, (tree_.right - tree_.left), 32, hwnd_, (HMENU)i, instance_, NULL);
+            tree_.left, tree_.top, DPISCALE(tree_.right - tree_.left, dpi_), DPISCALE(32, dpi_), hwnd_, (HMENU)i, instance_, NULL);
         WINRT_VERIFY(radio);
 
         SendMessage(radio, WM_SETFONT, (WPARAM)Theme::TextFont, FALSE);
@@ -78,7 +79,7 @@ void GuiBuilderImpl::AddRadioButtons(const std::vector<LPCTSTR>& options, int in
         isTop = false;
         handles.push_back(radio);
 
-        tree_.top += 32;
+        tree_.top += DPISCALE(32, dpi_);
     }
 
     if (OnRadioGroupAdded) {
@@ -89,13 +90,13 @@ void GuiBuilderImpl::AddRadioButtons(const std::vector<LPCTSTR>& options, int in
 void GuiBuilderImpl::AddSlider(int min, int max, int initial, const SliderCallback& callback)
 {
     HWND slider = CreateWindow(TRACKBAR_CLASS, L"track", WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP | TBS_NOTICKS,
-        tree_.left - 4, tree_.top, (tree_.right - tree_.left) + 0, 24, hwnd_, (HMENU)0x10, instance_, NULL);
+        tree_.left - 4, tree_.top, tree_.right - tree_.left, 24, hwnd_, (HMENU)0x10, instance_, NULL);
     WINRT_VERIFY(slider);
 
     SendMessage(slider, TBM_SETRANGE, FALSE, MAKELPARAM(min, max));
     SendMessage(slider, TBM_SETPOS, TRUE, initial);
 
-    tree_.top += 36;
+    tree_.top += DPISCALE(24, dpi_);
 
     if (OnSliderAdded) {
         OnSliderAdded(slider, callback);

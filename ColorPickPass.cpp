@@ -2,26 +2,32 @@
 #include "ColorPickPass.h"
 #include "Renderer.h"
 #include "PipelineState.h"
-#include "dutil.h"
 #include "Theme.h"
+#include "dutil.h"
+#include "WindowCommon.h"
 
 using namespace std;
 using namespace winrt;
 
-void ColorPickPass::Init(class Renderer* renderer)
+void ColorPickPass::Init(class Renderer* renderer, int dpiX, int dpiY)
 {
+	hwnd_ = renderer->GetHwnd();
+
 	auto device = renderer->Device();
 
 	staging_ = CreateTexture2D(device, 1, 1, DXGI_FORMAT_B8G8R8A8_UNORM, D3D11_USAGE_STAGING, 0, D3D11_CPU_ACCESS_READ);
+
+	dpiX_ = dpiX;
+	dpiY_ = dpiY;
 }
 
-void ColorPickPass::AddPass(class Renderer* renderer, class PipelineState* state, ID3D11Texture2D* capture, int sx, int sy)
+void ColorPickPass::AddPass(class Renderer* renderer, class PipelineState* state, ID3D11Texture2D* capture, const POINT& screenPos)
 {
 	if (auto mode = state->ColorPickMode(); mode == EColorPickMode::None) {
 		return;
 	}
 
-	auto color = PickColor(renderer->Context(), capture, sx, sy);
+	auto color = PickColor(renderer->Context(), capture, screenPos.x, screenPos.y);
 
 	auto rt = renderer->D2DRenderTarget();
 
@@ -39,10 +45,14 @@ void ColorPickPass::AddPass(class Renderer* renderer, class PipelineState* state
 	auto mx = 8.f;
 	auto my = 4.f;
 
-	auto cw = state->Width();
-	auto ch = state->Height();
-	auto cx = sx - state->ClientLeft();
-	auto cy = sy - state->ClientTop();
+	int dpi = dpiX_ == 0 ? 96 : dpiX_;
+
+	auto cw = (state->Width() * 96) / dpi;
+	auto ch = (state->Height() * 96) / dpi;
+
+	auto [cx, cy] = ScreenToClient(hwnd_, screenPos.x, screenPos.y);
+	cx = (cx * 96) / dpiX_;
+	cy = (cy * 96) / dpiY_;
 
 	auto tw = metrix.width;
 	auto th = metrix.height;
@@ -58,6 +68,12 @@ void ColorPickPass::AddPass(class Renderer* renderer, class PipelineState* state
 	rt->FillRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(x, y, x + w, y + h), 4.f, 4.f), renderer->D2DBgColorBrush());
 	rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x + mx + th / 2.f, y + my + th / 2.f), th / 2.f, th / 2.f), colorBrush.get());
 	rt->DrawTextLayout(D2D1::Point2F(x + mx + th + mx, y + my), text.get(), renderer->D2DFgColorBrush());
+}
+
+void ColorPickPass::SetDpi(int dpiX, int dpiY)
+{
+	dpiX_ = dpiX;
+	dpiY_ = dpiY;
 }
 
 uint32_t ColorPickPass::PickColor(ID3D11DeviceContext* context, ID3D11Texture2D* capture, int x, int y)
@@ -134,7 +150,7 @@ winrt::com_ptr<IDWriteTextLayout> ColorPickPass::GetLayoutedText(IDWriteFactory*
 	}
 
 	com_ptr<IDWriteTextLayout> layout{};
-	check_hresult(factory->CreateTextLayout(text, (UINT32)wcslen(text), textFormat, 1000, 10000, layout.put()));
+	check_hresult(factory->CreateTextLayout(text, (UINT32)wcslen(text), textFormat, 10000, 10000, layout.put()));
 
 	DWRITE_TEXT_METRICS metrix{};
 	layout->GetMetrics(&metrix);

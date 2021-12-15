@@ -1,9 +1,11 @@
 #include "App.h"
 #include <chrono>
 #include "common.h"
+#include "WindowCommon.h"
 #include "dutil.h"
 #include "AppConfig.h"
 #include "AppWindow.h"
+#include "Theme.h"
 #include "Renderer.h"
 #include "ScreenCapture.h"
 #include "PipelineState.h"
@@ -51,13 +53,18 @@ bool App::Initialize()
 		HWND hwnd = window_->Create(x, y, width, height, histogramMode, viewMode, scale, opacity);
 		WINRT_VERIFY(hwnd);
 
-		renderer_->Init(hwnd);
+		int dpi = window_->GetDpi();
+		dpiChanged_ = false;
+		dpiX_ = dpi;
+		dpiY_ = dpi;
+
+		renderer_->Init(hwnd, dpi, dpi);
 		capture_->Init(renderer_->Device());
 		state_->Init(renderer_->Device(), hwnd);
 		computePass_->Init(renderer_->Device(), *state_.get());
 		planePass_->Init(renderer_->Device(), *state_.get());
 		graphPass_->Init(renderer_->Device(), *state_.get());
-		colorPickPass_->Init(renderer_.get());
+		colorPickPass_->Init(renderer_.get(), dpi, dpi);
 
 		state_->SetOpacity(opacity);
 		state_->SetScale(scale);
@@ -88,11 +95,19 @@ void App::Finalize()
 void App::CaptureProcess(HWND hwnd)
 {
 	auto sleepTime = chrono::milliseconds(2000 / config_->FrameRate);
+	bool dpiChangedEver = false;
 
 	while (bContinue_) {
 		if (!bCapture_) {
 			this_thread::sleep_for(chrono::milliseconds(100));
 			continue;
+		}
+
+		if (dpiChanged_) {
+			dpiChanged_ = false;
+			renderer_->SetDpi(dpiX_, dpiY_);
+			colorPickPass_->SetDpi(dpiX_, dpiY_);
+			dpiChangedEver = true;
 		}
 
 		auto cap = capture_->Capture(500);
@@ -113,15 +128,12 @@ void App::CaptureProcess(HWND hwnd)
 			continue;
 		}
 
-		POINT cursor = {};
-		GetCursorPos(&cursor);
-
 		renderer_->BeginDraw(state_->Width(), state_->Height());
 
 		computePass_->AddPass(renderer_->Context(), *state_.get());
 		planePass_->AddPass(renderer_->Context(), *state_.get());
 		graphPass_->AddPass(renderer_->Context(), *state_.get());
-		colorPickPass_->AddPass(renderer_.get(), state_.get(), cap.texture.get(), cursor.x, cursor.y);
+		colorPickPass_->AddPass(renderer_.get(), state_.get(), cap.texture.get(), GetCursorPos());
 		DrawCloseButton();
 
 		renderer_->EndDraw();
@@ -138,17 +150,18 @@ void App::DrawCloseButton()
 
 	auto rt = renderer_->D2DRenderTarget();
 
-	float x = close_.x;
-	float y = close_.y;
-	float w = close_.w;
-	float h = close_.h;
+	int dpi = dpiX_ == 0 ? 96 : dpiX_;
+	float x = (close_.x * 96) / dpi;
+	float y = (close_.y * 96) / dpi;
+	float w = (close_.w * 96) / dpi;
+	float h = (close_.h * 96) / dpi;
 
 	com_ptr<ID2D1SolidColorBrush> brush{};
-	rt->CreateSolidColorBrush(D2D1::ColorF(close_.state == EButtonState::Hover ? 0xE81123 : 0xF16F7A, 1.f), brush.put());
+	rt->CreateSolidColorBrush(D2D1::ColorF(close_.state == EButtonState::Hover ? 0xc42b1c : 0xB22A1C, 1.f), brush.put());
 	rt->FillRectangle(D2D1::RectF(x, y, x + w, y + h), brush.get());
 
 	brush = {};
-	rt->CreateSolidColorBrush(D2D1::ColorF(0xCCCCCC, 1.f), brush.put());
+	rt->CreateSolidColorBrush(D2D1::ColorF(0xBBBBBB, 1.f), brush.put());
 
 	float s = 0.333f;
 	float t = 1.f - s;
@@ -197,6 +210,13 @@ void App::OnMoving()
 void App::OnMinimized()
 {
 	bCapture_ = false;
+}
+
+void App::OnDpiChanged(int dpiX, int dpiY)
+{
+	dpiChanged_ = true;
+	dpiX_ = dpiX;
+	dpiY_ = dpiY;
 }
 
 void App::SetHistogramMode(EHistogramMode mode)

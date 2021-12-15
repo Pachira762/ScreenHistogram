@@ -6,13 +6,16 @@
 using namespace std;
 using namespace winrt;
 
-void Renderer::Init(HWND hwnd)
+void Renderer::Init(HWND hwnd, int dpiX, int dpiY)
 {
 	RECT rc{};
 	GetClientRect(hwnd, &rc);
 
 	int width = rc.right - rc.left;
 	int height = rc.bottom - rc.top;
+
+	dpiX_ = dpiX;
+	dpiY_ = dpiY;
 
 	hwnd_ = hwnd;
 	device_ = CreateD3DDevice(D3D_DRIVER_TYPE_HARDWARE);
@@ -57,19 +60,28 @@ void Renderer::Init(HWND hwnd)
 	{
 		d2dFactory_ = CreateD2DFactory();
 		d2dDevice_ = CreateD2DDevice(d2dFactory_.get(), device_.as<IDXGIDevice>().get());
-		d2dRenderTarget_ = CreateD2DRenderTarget(d2dFactory_.get(), swapChain_.get());
 
 		dwFactory_ = CreateDWriteFactory();
 		dwTextFormat_ = CreateDWriteTextFormat(dwFactory_.get(), Theme::MonoFontName.c_str(), 16.f);
-		
-		d2dFgBrush_ = CreateD2DColorBrush(d2dRenderTarget_.get(), Theme::Dark::AccentTextColor);
-		d2dBgBrush_ = CreateD2DColorBrush(d2dRenderTarget_.get(), Theme::Dark::BgColor, 0.8f);
+
+		InitRenderTarget();
 	}
 
 	rasterizerState_ = CreateRasterizerState(device_.get());
 	blendState_ = CreateBlendState(device_.get());
 	rtv_ = CreateRenderTargetView(device_.get(), swapChain_.get());
 	viewport_ = CreateViewport(width, height);
+}
+
+void Renderer::SetDpi(int dpiX, int dpiY)
+{
+	dpiX_ = dpiX;
+	dpiY_ = dpiY;
+
+	d2dFgBrush_ = nullptr;
+	d2dBgBrush_ = nullptr;
+	d2dRenderTarget_ = nullptr;
+	InitRenderTarget();
 }
 
 void Renderer::BeginDraw(int width, int height)
@@ -126,9 +138,13 @@ void Renderer::AdjustRenderTarget(int width, int height)
 		viewport_.Width = static_cast<float>(width);
 		viewport_.Height = static_cast<float>(height);
 
-		d2dRenderTarget_ = CreateD2DRenderTarget(d2dFactory_.get(), backbuffer.get());
-		d2dFgBrush_ = CreateD2DColorBrush(d2dRenderTarget_.get(), Theme::Dark::AccentTextColor);
-		d2dBgBrush_ = CreateD2DColorBrush(d2dRenderTarget_.get(), Theme::Dark::BgColor);
+		InitRenderTarget();
 	}
 }
 
+void Renderer::InitRenderTarget()
+{
+	d2dRenderTarget_ = CreateD2DRenderTarget(d2dFactory_.get(), swapChain_.get(), static_cast<float>(dpiX_), static_cast<float>(dpiY_));
+	d2dFgBrush_ = CreateD2DColorBrush(d2dRenderTarget_.get(), Theme::Dark::AccentTextColor);
+	d2dBgBrush_ = CreateD2DColorBrush(d2dRenderTarget_.get(), Theme::Dark::BgColor);
+}

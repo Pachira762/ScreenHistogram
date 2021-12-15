@@ -7,27 +7,6 @@ using namespace std;
 
 static OptionPanel* pThis = nullptr;
 
-static inline std::tuple<int, int, int, int> CalcFramePosSize(HWND parent)
-{
-    auto [x, y] = ClientToScreen(parent, 0, 0);
-    auto [cx, cy] = GetClientSize(parent);
-    return { x, y, PanelWidth, cy };
-}
-
-static inline std::tuple<int, int, int, int> CalcContentPosSize(HWND frame)
-{
-    auto [cx, cy] = GetClientSize(frame);
-    auto th = TitleHeight;
-    auto sw = 0;
-    return { 0, 0, cx, cy};
-}
-
-static inline std::tuple<int, int, int, int> CalcScrollbarPositionSize(HWND hwnd)
-{
-    auto [cx, cy] = GetClientSize(hwnd);
-    return { cx - VScrollWidth - 2, 0, VScrollWidth, cy };
-}
-
 OptionPanel::OptionPanel()
 {
     pThis = this;
@@ -55,14 +34,17 @@ void OptionPanel::Size(int , int )
     SetWindowPos(frame_, NULL, x, y, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
-std::shared_ptr<IGuiBuilder> OptionPanel::Create(HWND parent)
+std::shared_ptr<IGuiBuilder> OptionPanel::Create(HWND parent, int dpi)
 {
+    dpi_ = dpi;
+    panelSize_ = DPISCALE(200, dpi_);
+
     instance_ = GetModuleHandle(NULL);
     parent_ = parent;
     
     WNDCLASSEX wcex = {};
     wcex.cbSize = sizeof(WNDCLASSEX);
-    wcex.style = CS_HREDRAW | CS_VREDRAW;
+    wcex.style = 0;
     wcex.lpfnWndProc = OptionPanel::FrameWndProc;
     wcex.cbClsExtra = 0;
     wcex.cbWndExtra = 0;
@@ -78,7 +60,7 @@ std::shared_ptr<IGuiBuilder> OptionPanel::Create(HWND parent)
         x, y, w, h, parent, NULL, instance_, NULL);
     WINRT_VERIFY(frame_);
 
-    auto builder = make_shared<GuiBuilderImpl>((HWND)frame_, RECT{12, 12, VScrollWidth + 4, 12});
+    auto builder = make_shared<GuiBuilderImpl>((HWND)frame_, RECT{12, 12, VScrollWidth + 4, 12}, dpi_);
 
     builder->OnTextAdded = [this](LPCTSTR text, const RECT& layout) {
         texts_.push_back({layout, text});
@@ -200,7 +182,7 @@ LRESULT OptionPanel::OnCustomDraw(NMCUSTOMDRAW* nmc)
     const auto hwnd = nmc->hdr.hwndFrom;
 
     if (customDrawRadioButtons_.find(hwnd) != customDrawRadioButtons_.end()) {
-        return DrawRadioButton(nmc);
+        return DrawRadioButton(nmc, dpi_);
     }
     else {
         return CDRF_DODEFAULT;
@@ -230,7 +212,7 @@ LRESULT CALLBACK OptionPanel::FrameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARA
             return HTVSCROLL;
         }
         else {
-            if (NonClientHitTest(pThis->parent_, GET_X_LPARAM(lp), GET_Y_LPARAM(lp)) == HTCLIENT) {
+            if (NonClientHitTest(pThis->parent_, GET_X_LPARAM(lp), GET_Y_LPARAM(lp), pThis->dpi_) == HTCLIENT) {
                 return HTCLIENT;
             }
             else {
@@ -251,7 +233,7 @@ LRESULT CALLBACK OptionPanel::FrameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARA
 
     case WM_VSCROLL:
         if (auto dy = VScrollProc(hwnd, wp); dy != 0) {
-            ScrollWindow(hwnd, 0, dy, nullptr, nullptr);
+            ScrollWindowEx(hwnd, 0, dy, nullptr, nullptr, nullptr, nullptr, SW_ERASE | SW_INVALIDATE | SW_SCROLLCHILDREN);
             UpdateWindow(hwnd);
         }
         break;
@@ -265,7 +247,6 @@ LRESULT CALLBACK OptionPanel::FrameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARA
         }
         return 0;
 
-    case WM_CTLCOLORBTN:
     case WM_CTLCOLORSTATIC:
         return (LRESULT)(Theme::IsEnabledAcrylic ? GetStockObject(BLACK_BRUSH) : Theme::Dark::BgBrush);
 

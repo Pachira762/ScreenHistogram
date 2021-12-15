@@ -3,14 +3,15 @@
 class Renderer
 {
 public:
-	void	Init(HWND hwnd);
+	void	Init(HWND hwnd, int dpiX, int dpiY);
+	void	SetDpi(int dpiX, int dpiY);
 	void	BeginDraw(int width, int height);
 	void	EndDraw();
 
 private:
 	HWND	hwnd_ = NULL;
-	float	dpiX_ = 96.f;
-	float	dpiY_ = 96.f;
+	int		dpiX_ = 96;
+	int		dpiY_ = 96;
 
 	winrt::com_ptr<ID3D11Device5>			device_{ nullptr };
 	winrt::com_ptr<ID3D11DeviceContext4>	context_{ nullptr };
@@ -47,8 +48,13 @@ private:
 	void	EndD2();
 
 	void	AdjustRenderTarget(int width, int height);
+	void	InitRenderTarget();
 
 public:
+	auto GetHwnd() const {
+		return hwnd_;
+	}
+
 	auto Device() const {
 		return device_.get();
 	}

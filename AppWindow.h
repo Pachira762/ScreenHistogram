@@ -1,5 +1,6 @@
 #pragma once
 #include "common.h"
+#include "WindowCommon.h"
 
 class AppWindowListener
 {
@@ -12,6 +13,7 @@ public:
 	virtual void	OnSizing() = 0;
 	virtual void	OnMoving() = 0;
 	virtual void	OnMinimized() = 0;
+	virtual void	OnDpiChanged(int dpiX, int dpiY) = 0;
 
 	virtual void	SetHistogramMode(EHistogramMode mode) = 0;
 	virtual void	SetViewMode(EViewMode mode) = 0;
@@ -35,20 +37,24 @@ private:
 	AppWindowListener* listener_;
 	std::unique_ptr<class OptionPanel>	panel_;
 
-	HWND	hwnd_{};
-	HWND	close_ = {};
-	DWORD	style_;
-	DWORD	styleEx_;
-	bool	transparency_ = false;
+	HWND		hwnd_{};
+	HWND		close_ = {};
+	DWORD		style_;
+	DWORD		styleEx_;
+	UINT_PTR	timer_ = NULL;
+	bool		transparency_ = false;
+	int			dpi_ = 96;
 	
-
+	void	KillTimer();
+	void	CheckTransparency();
 	void	SetTransparency(bool transparency);
 
 	void	OnCreate(LPCREATESTRUCT cs);
 	void	OnMove(int x, int y);
 	void	OnSize(int cx, int cy);
 	LRESULT	OnNcHitTest(int x, int y);
-	void	OnCheckTransparency();
+	LRESULT	OnCustomDraw(NMCUSTOMDRAW* nmc);
+	void	OnDpiChanged(int dpiX, int dpiY);
 
 	static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 
@@ -63,6 +69,19 @@ public:
 		RECT rc{};
 		GetWindowRect(hwnd_, &rc);
 		return rc;
+	}
+
+	int GetDpi() const {
+		if (auto dpi = GetDpiForWindow(hwnd_); dpi != 0) {
+			return dpi;
+		}
+		else {
+			return GetDpiForSystem();
+		}
+	}
+
+	POINT ScreenToClient(int x, int y) const {
+		return ::ScreenToClient(hwnd_, x, y);
 	}
 };
 

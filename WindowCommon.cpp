@@ -21,42 +21,36 @@ int VScrollProc(HWND scroll, WPARAM wp, int bar)
     auto line = GET_WHEEL_DELTA_WPARAM(wp) == 0 ? 1 : HIWORD(wp);
 
     switch (LOWORD(wp)) {
-    case SB_TOP:
-        si.nPos = si.nMin;
-        break;
-
-        // User clicked the END keyboard key.
-    case SB_BOTTOM:
-        si.nPos = si.nMax;
-        break;
-
-        // User clicked the top arrow.
     case SB_LINEUP:
         si.nPos -= line;
         break;
 
-        // User clicked the bottom arrow.
     case SB_LINEDOWN:
         si.nPos += line;
         break;
 
-        // User clicked the scroll bar shaft above the scroll box.
     case SB_PAGEUP:
         si.nPos -= si.nPage;
         break;
 
-        // User clicked the scroll bar shaft below the scroll box.
     case SB_PAGEDOWN:
         si.nPos += si.nPage;
         break;
 
-        // User dragged the scroll box.
     case SB_THUMBTRACK:
         si.nPos = si.nTrackPos;
         break;
 
-    default:
+    case SB_TOP:
+        si.nPos = si.nMin;
         break;
+
+    case SB_BOTTOM:
+        si.nPos = si.nMax;
+        break;
+
+    default:
+        return 0;
     }
 
     si.fMask = SIF_POS;
@@ -87,7 +81,7 @@ int UpdateScroll(HWND scroll, int page, int range, int bar)
     return (pos - si.nPos);
 }
 
-LRESULT	DrawRadioButton(NMCUSTOMDRAW* nmc)
+LRESULT	DrawRadioButton(NMCUSTOMDRAW* nmc, int dpi)
 {
     static TCHAR buff[256];
 
@@ -100,10 +94,11 @@ LRESULT	DrawRadioButton(NMCUSTOMDRAW* nmc)
 
     auto hdc = nmc->hdc;
     SetBkMode(hdc, TRANSPARENT);
+
     SetTextColor(hdc, Theme::Dark::TextColor);
     SelectObject(hdc, Theme::TextFont);
 
-    nmc->rc.left += 17;
+    nmc->rc.left += DPISCALE(17, dpi);
     GetWindowText(nmc->hdr.hwndFrom, buff, _countof(buff));
     DrawText(hdc, buff, -1, &nmc->rc, DT_VCENTER | DT_SINGLELINE);
 

@@ -45,10 +45,7 @@ HWND AppWindow::Create(int x, int y, int width, int height, EHistogramMode histo
         x, y, max(width, 480), max(height, 360), NULL, NULL, instance, NULL);
     WINRT_VERIFY(hwnd_);
 
-    RECT rc{};
-    GetWindowRect(hwnd_, &rc);
-
-    auto builder = panel_->Create(hwnd_);
+    auto builder = panel_->Create(hwnd_, GetDpi());
     builder->AddLabel(L"Histogram");
     builder->AddRadioButtons({ L"RGB", L"RGB Brightness", L"Brightness", L"Saturation" }, (int)histogramMode, [this](int index) {
         this->listener_->SetHistogramMode((EHistogramMode)index);
@@ -83,6 +80,24 @@ void AppWindow::Show()
     ShowWindow(hwnd_, SW_SHOW);
 }
 
+void AppWindow::KillTimer()
+{
+    if (timer_) {
+        ::KillTimer(hwnd_, timer_);
+        timer_ = NULL;
+    }
+}
+
+void AppWindow::CheckTransparency()
+{
+    if (transparency_) {
+        auto [x, y] = GetCursorPos();
+        if (NonClientHitTest(hwnd_, x, y, dpi_) != HTCLIENT) {
+            SetTransparency(false);
+        }
+    }
+}
+
 void AppWindow::SetTransparency(bool transparency)
 {
     if (transparency_ == transparency) {
@@ -99,12 +114,16 @@ void AppWindow::OnCreate(LPCREATESTRUCT cs)
     SetWindowPos(hwnd_, NULL, 0, 0, 0, 0, SWP_NOZORDER | SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED);
     SetLayeredWindowAttributes(hwnd_, 0, 255, LWA_ALPHA);
     SetWindowDisplayAffinity(hwnd_, WDA_EXCLUDEFROMCAPTURE);
-    SetTimer(hwnd_, 1, 100, NULL);
 
+    auto size = CloseButtonSize;
     auto [cw, ch] = GetClientSize(hwnd_);
     close_ = CreateWindowEx(0, L"BUTTON", L"X", WS_VISIBLE|WS_CHILD|BS_DEFPUSHBUTTON,
-        cw - CloseButtonSize, 0, CloseButtonSize, CloseButtonSize, hwnd_, NULL, GetModuleHandle(NULL), NULL);
+        cw - size, 0, size, size, hwnd_, NULL, GetModuleHandle(NULL), NULL);
     WINRT_VERIFY(close_);
+
+    timer_ = SetTimer(hwnd_, 1, 100, [](HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime) {
+        pThis->CheckTransparency();
+        });
 }
 
 void AppWindow::OnMove(int x, int y)
@@ -114,21 +133,23 @@ void AppWindow::OnMove(int x, int y)
 
 void AppWindow::OnSize(int cx, int cy)
 {
-    SetWindowPos(close_, NULL, cx - CloseButtonSize, 0, CloseButtonSize, CloseButtonSize, SWP_NOZORDER);
+    auto size = CloseButtonSize;
+    SetWindowPos(close_, NULL, cx - size, 0, size, size, SWP_NOZORDER);
 
     panel_->Size(cx, cy);
 }
 
 LRESULT AppWindow::OnNcHitTest(int x, int y)
 {
-    const auto hit = NonClientHitTest(hwnd_, x, y);
+    const auto hit = NonClientHitTest(hwnd_, x, y, dpi_);
     if (hit == HTNOWHERE) {
         return HTNOWHERE;
     }
 
-    auto cx = ScreenToClient(hwnd_, x, y).x;
+    auto margin = DPISCALE(40, dpi_);
+    auto cx = ScreenToClient(x, y).x;
     if (hit == HTCLIENT) {
-        if (cx < 40) {
+        if (cx < margin) {
             panel_->Show();
         }
         else {
@@ -137,7 +158,7 @@ LRESULT AppWindow::OnNcHitTest(int x, int y)
         }
     }
     else {
-        if (cx < 40) {
+        if (cx < margin) {
             panel_->Show();
         }
     }
@@ -145,14 +166,33 @@ LRESULT AppWindow::OnNcHitTest(int x, int y)
     return hit;
 }
 
-void AppWindow::OnCheckTransparency()
+LRESULT AppWindow::OnCustomDraw(NMCUSTOMDRAW* nmc)
 {
-    if (transparency_) {
-        auto[x, y] = GetCursorPos();
-        if (NonClientHitTest(hwnd_, x, y) != HTCLIENT) {
-            SetTransparency(false);
-        }
-    }   
+    if (nmc->dwDrawStage != CDDS_PREERASE) {
+        return CDRF_SKIPDEFAULT;
+    }
+
+    auto close = nmc->hdr.hwndFrom;
+    auto [sx, sy] = ClientToScreen(close, 0, 0);
+    auto [cx, cy] = pThis->ScreenToClient(sx, sy);
+    auto [cw, ch] = GetClientSize(close);
+
+    if (auto state = nmc->uItemState; state & CDIS_SELECTED) {
+        listener_->SetCloseButtonState(cx, cy, cw, ch, EButtonState::Pushed);
+    }
+    else if (state & CDIS_HOT) {
+        listener_->SetCloseButtonState(cx, cy, cw, ch, EButtonState::Hover);
+    }
+    else {
+        listener_->SetCloseButtonState(cx, cy, cw, ch, EButtonState::None);
+    }
+
+    return CDRF_SKIPDEFAULT;
+}
+
+void AppWindow::OnDpiChanged(int dpiX, int dpiY)
+{
+    listener_->OnDpiChanged(dpiX, dpiY);
 }
 
 LRESULT CALLBACK AppWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
@@ -164,6 +204,7 @@ LRESULT CALLBACK AppWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 		break;
 
 	case WM_DESTROY:
+        pThis->KillTimer();
         pThis->listener_->OnDestory();
 		PostQuitMessage(0);
 		break;
@@ -202,10 +243,6 @@ LRESULT CALLBACK AppWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         }
         break;
 
-    case WM_TIMER:
-        pThis->OnCheckTransparency();
-        break;
-
     case WM_COMMAND:
         if (auto code = HIWORD(wp); code == BN_CLICKED) {
             SendMessage(hwnd, WM_CLOSE, 0, 0);
@@ -214,30 +251,13 @@ LRESULT CALLBACK AppWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 
     case WM_NOTIFY:
         if (reinterpret_cast<NMHDR*>(lp)->code == NM_CUSTOMDRAW) {
-            auto nmc = reinterpret_cast<NMCUSTOMDRAW*>(lp);
-
-            if (nmc->dwDrawStage != CDDS_PREERASE){
-                return CDRF_SKIPDEFAULT;
-            }
-
-            auto close = nmc->hdr.hwndFrom;
-            auto [sx, sy] = ClientToScreen(close, 0, 0);
-            auto [cx, cy] = ScreenToClient(pThis->hwnd_, sx, sy);
-            auto [cw, ch] = GetClientSize(close);
-
-            if (auto state = nmc->uItemState; state & CDIS_SELECTED) {
-                pThis->listener_->SetCloseButtonState(cx, cy, cw, ch, EButtonState::Pushed);
-            }
-            else if (state & CDIS_HOT) {
-                pThis->listener_->SetCloseButtonState(cx, cy, cw, ch, EButtonState::Hover);
-            }
-            else {
-                pThis->listener_->SetCloseButtonState(cx, cy, cw, ch, EButtonState::None);
-            }
-
-            return CDRF_SKIPDEFAULT;
+            return pThis->OnCustomDraw((NMCUSTOMDRAW*)lp);
         }
         return 0;
+
+    case WM_DPICHANGED: // TODO 
+        pThis->OnDpiChanged(LOWORD(wp), HIWORD(wp));
+        break;
 
 	default:
 		return DefWindowProc(hwnd, msg, wp, lp);

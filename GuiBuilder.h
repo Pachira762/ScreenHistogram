@@ -22,7 +22,7 @@ protected:
 class GuiBuilderImpl : public IGuiBuilder
 {
 public:
-	GuiBuilderImpl(HWND hwnd, const RECT& margin);
+	GuiBuilderImpl(HWND hwnd, const RECT& margin, int dpi);
 	~GuiBuilderImpl();
 
 	virtual void	Build()override;
@@ -47,4 +47,5 @@ private:
 	HWND		hwnd_ = NULL;
 	RECT		tree_ = {};
 	HDC			hdc_ = {};
+	int			dpi_ = 96;
 };

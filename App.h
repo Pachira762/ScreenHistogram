@@ -26,6 +26,10 @@ private:
 	std::atomic_bool	bCapture_ = false;
 	std::thread			thread_;
 
+	std::atomic_bool	dpiChanged_ = false;
+	std::atomic_int		dpiX_ = 96;
+	std::atomic_int		dpiY_ = 96;
+
 	struct CloseButton
 	{
 		std::atomic_int		x;
@@ -45,6 +49,7 @@ private:
 	virtual void	OnSizing()override;
 	virtual void	OnMoving()override;
 	virtual void	OnMinimized()override;
+	virtual void	OnDpiChanged(int dpiX, int dpiY)override;
 
 	virtual void	SetHistogramMode(EHistogramMode mode)override;
 	virtual void	SetViewMode(EViewMode mode)override;
