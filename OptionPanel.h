@@ -1,6 +1,7 @@
 #pragma once
-#include "WindowCommon.h"
+#include "WinUtil.h"
 #include "GuiBuilder.h"
+#include "GuiLayout.h"
 
 class OptionPanel
 {
@@ -9,12 +10,16 @@ public:
 
 	void	Show();
 	void	Hide();
-	void	Move(int x, int y);
-	void	Size(int cx, int cy);
+	void	Move();
+	void	Size();
 	
-	std::shared_ptr<IGuiBuilder>	Create(HWND parent, int dpi);
+	std::shared_ptr<IGuiBuilder>	Create(HWND parent);
 
 private:
+	static constexpr auto PanelSize = 200;
+	static constexpr auto MarginX = 12; 
+	static constexpr auto MarginY = 8;
+
 	struct Text
 	{
 		RECT			layout;
@@ -27,12 +32,10 @@ private:
 		RadioButtonCallback	callback;
 	};
 
-	HINSTANCE	instance_ = NULL;
-	HWND		parent_ = NULL;
-	HWND		frame_ = NULL;
-	int			dpi_ = 96;
-	int			panelSize_ = 200;
+	HWND	parent_ = NULL;
+	HWND	hwnd_ = NULL;
 
+	std::unique_ptr<GuiLayout> layout_;
 	std::vector<Text>	texts_ = {};
 	std::vector<Text>	labels_ = {};
 	std::vector<RadioButtonGroup>	radioGroups_ = {};
@@ -40,11 +43,13 @@ private:
 	std::set<HWND>	customDrawRadioButtons_ = {};
 
 	void	CheckRadioButtons(HWND radio, int index);
+	int		UpdateScrollPage(int page);
 
 	void	OnCreate(LPCREATESTRUCT cs);
 	void	OnSize(int cx, int cy);
 	void	OnPaint();
-	void	OnHScroll(HWND scroll);
+	void	OnHScroll(HWND slider);
+	void	OnVScroll(int code, int delta);
 	void	OnCommand(int id, int code, HWND handle);
 	LRESULT	OnNotify(DWORD id, NMHDR* hdr);
 	LRESULT	OnCustomDraw(NMCUSTOMDRAW* nmc);
@@ -52,25 +57,62 @@ private:
 	static LRESULT CALLBACK FrameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 
 private:
-	std::tuple<int, int, int, int> CalcFramePosSize(HWND parent)
+	POINT CalcFramePos()
 	{
-		auto [x, y] = ClientToScreen(parent, 0, 0);
-		auto [cx, cy] = GetClientSize(parent);
-		return { x, y, panelSize_, cy };
+		auto [x, y] = WinUtil::GetClientPos(parent_);
+		return { x - 1, y - 1 };
 	}
 
-	 std::tuple<int, int, int, int> CalcContentPosSize(HWND frame)
+	SIZE CalcFrameSize()
 	{
-		auto [cx, cy] = GetClientSize(frame);
-		auto th = TitleHeight;
-		auto sw = 0;
-		return { 0, 0, cx, cy };
+		auto [cx, cy] = WinUtil::GetClientSize(parent_);
+		return { PanelSize, cy + 2 };
 	}
 
 	std::tuple<int, int, int, int> CalcScrollbarPositionSize(HWND hwnd)
 	{
-		auto [cx, cy] = GetClientSize(hwnd);
+		auto [cx, cy] = WinUtil::GetClientSize(hwnd);
 		return { cx - VScrollWidth - 2, 0, VScrollWidth, cy };
+	}
+
+	int GetScrollPos()
+	{
+		SCROLLINFO si{};
+		si.cbSize = sizeof(si);
+		si.fMask = SIF_POS;
+		GetScrollInfo(hwnd_, SB_VERT, &si);
+		return si.nPos;
+	}
+
+public:
+
+	void Layout()
+	{
+		Size();
+
+		auto hdc = GetDC(hwnd_);
+		auto [cx, cy] = WinUtil::GetClientSize(hwnd_);
+		layout_->Layout(hdc, cx - MarginX - VScrollWidth);
+		ReleaseDC(hwnd_, hdc);
+
+		SCROLLINFO si{};
+		si.cbSize = sizeof(si);
+		si.fMask = SIF_ALL;
+		GetScrollInfo(hwnd_, SB_VERT, &si);
+
+		ScrollWindowEx(hwnd_, 0, WinUtil::Pix(-si.nPos), nullptr, nullptr, nullptr, nullptr, SW_ERASE | SW_INVALIDATE | SW_SCROLLCHILDREN); // reset scroll
+
+		si.fMask = SIF_RANGE | SIF_PAGE;
+		si.nMin = 0;
+		si.nMax = layout_->Height();
+		si.nPage = WinUtil::GetClientSize(this->hwnd_).cy;
+		SetScrollInfo(hwnd_, SB_VERT, &si, TRUE);
+
+		si.fMask = SIF_POS;
+		GetScrollInfo(hwnd_, SB_VERT, &si);
+
+		ScrollWindowEx(hwnd_, 0, WinUtil::Pix(si.nPos), nullptr, nullptr, nullptr, nullptr, SW_ERASE | SW_INVALIDATE | SW_SCROLLCHILDREN);
+		UpdateWindow(hwnd_);
 	}
 };
 

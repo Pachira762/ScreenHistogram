@@ -1,11 +1,9 @@
 #include "App.h"
-#include <chrono>
 #include "common.h"
-#include "WindowCommon.h"
-#include "dutil.h"
+#include "WinUtil.h"
+#include "Theme.h"
 #include "AppConfig.h"
 #include "AppWindow.h"
-#include "Theme.h"
 #include "Renderer.h"
 #include "ScreenCapture.h"
 #include "PipelineState.h"
@@ -53,7 +51,7 @@ bool App::Initialize()
 		HWND hwnd = window_->Create(x, y, width, height, histogramMode, viewMode, scale, opacity);
 		WINRT_VERIFY(hwnd);
 
-		int dpi = window_->GetDpi();
+		int dpi = WinUtil::GetDpi();
 		dpiChanged_ = false;
 		dpiX_ = dpi;
 		dpiY_ = dpi;
@@ -133,7 +131,7 @@ void App::CaptureProcess(HWND hwnd)
 		computePass_->AddPass(renderer_->Context(), *state_.get());
 		planePass_->AddPass(renderer_->Context(), *state_.get());
 		graphPass_->AddPass(renderer_->Context(), *state_.get());
-		colorPickPass_->AddPass(renderer_.get(), state_.get(), cap.texture.get(), GetCursorPos());
+		colorPickPass_->AddPass(renderer_.get(), state_.get(), cap.texture.get());
 		DrawCloseButton();
 
 		renderer_->EndDraw();
@@ -150,14 +148,13 @@ void App::DrawCloseButton()
 
 	auto rt = renderer_->D2DRenderTarget();
 
-	int dpi = dpiX_ == 0 ? 96 : dpiX_;
-	float x = (close_.x * 96) / dpi;
-	float y = (close_.y * 96) / dpi;
-	float w = (close_.w * 96) / dpi;
-	float h = (close_.h * 96) / dpi;
-
 	com_ptr<ID2D1SolidColorBrush> brush{};
 	rt->CreateSolidColorBrush(D2D1::ColorF(close_.state == EButtonState::Hover ? 0xc42b1c : 0xB22A1C, 1.f), brush.put());
+
+	float x = (float)close_.x;
+	float y = (float)close_.y;
+	float w = (float)close_.w;
+	float h = (float)close_.h;
 	rt->FillRectangle(D2D1::RectF(x, y, x + w, y + h), brush.get());
 
 	brush = {};
@@ -177,7 +174,8 @@ void App::OnClose()
 {
 	Finalize();
 
-	auto rect = window_->GetRect();
+	RECT rect = {};
+	GetWindowRect(window_->GetHandle(), &rect);
 
 	config_->WindowPosX.Save(rect.left);
 	config_->WindowPosY.Save(rect.top);
@@ -214,6 +212,9 @@ void App::OnMinimized()
 
 void App::OnDpiChanged(int dpiX, int dpiY)
 {
+	WinUtil::SetDpi(dpiX);
+	Theme::SetDpi(dpiX);
+
 	dpiChanged_ = true;
 	dpiX_ = dpiX;
 	dpiY_ = dpiY;

@@ -38,6 +38,8 @@ public:
 	static void	EnableBlurBackground(HWND hwnd, DWORD color = Dark::BgColor, DWORD opacity = 0x99);
 	static void	EnableAcrylicWindow(HWND hwnd, DWORD color = Dark::BgColor, DWORD opacity = 0x99);
 
+	static void SetDpi(int dpi);
+
 	static Theme*	Get();
 
 private:
@@ -47,8 +49,8 @@ private:
 
 	Theme();
 	~Theme();
-	void	InitBrushes();
-	void	InitFonts();
-	void	InitCompositionAttribute();
+	static void	InitBrushes();
+	static void	InitFonts(int dpi);
+	static void	InitCompositionAttribute();
 };
 

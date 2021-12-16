@@ -45,7 +45,7 @@ struct ACCENT_POLICY
 Theme::Theme()
 {
     InitBrushes();
-    InitFonts();
+    InitFonts(GetDpiForSystem());
     InitCompositionAttribute();
 }
 
@@ -156,6 +156,26 @@ void Theme::EnableAcrylicWindow(HWND hwnd, DWORD color, DWORD opacity)
 #endif
 }
 
+void Theme::SetDpi(int dpi)
+{
+    if (TextFont) {
+        DeleteObject(TextFont);
+        TextFont = nullptr;
+    }
+
+    if (LabelFont) {
+        DeleteObject(LabelFont);
+        LabelFont = nullptr;
+    }
+
+    if (IconFont) {
+        DeleteObject(IconFont);
+        IconFont = nullptr;
+    }
+
+    InitFonts(dpi);
+}
+
 Theme* Theme::Get()
 {
     static Theme instance({});
@@ -209,7 +229,7 @@ LOGFONT WinRTFont2LogFont(const winrt::Windows::Globalization::Fonts::LanguageFo
 }
 #endif
 
-void Theme::InitFonts()
+void Theme::InitFonts(int dpi)
 {
 #if 0
     LOGFONT lgfont{};
@@ -222,7 +242,7 @@ void Theme::InitFonts()
     hLabelFont_ = CreateFontIndirect(&uiHeadingFont);
 #else
     LOGFONT lgfont{};
-    if (SystemParametersInfo(SPI_GETICONTITLELOGFONT, sizeof(lgfont), &lgfont, 0)) {
+    if (SystemParametersInfoForDpi(SPI_GETICONTITLELOGFONT, sizeof(lgfont), &lgfont, 0, dpi)) {
         FontName = lgfont.lfFaceName;
         FontSize = lgfont.lfHeight *= 1.2;
 

@@ -19,10 +19,12 @@ protected:
 	IGuiBuilder() {}
 };
 
+class GuiLayout;
+
 class GuiBuilderImpl : public IGuiBuilder
 {
 public:
-	GuiBuilderImpl(HWND hwnd, const RECT& margin, int dpi);
+	GuiBuilderImpl(HWND hwnd, int marginX, int marginY, int width, std::unique_ptr<GuiLayout>& layout);
 	~GuiBuilderImpl();
 
 	virtual void	Build()override;
@@ -33,19 +35,18 @@ public:
 	virtual void	AddSlider(int min, int max, int initial, const SliderCallback& callback)override;
 
 public:
-	std::function<void(LPCTSTR text, const RECT& layout)>	OnTextAdded = {};
-	std::function<void(LPCTSTR text, const RECT& layout)>	OnLabelAdded = {};
+	std::function<void(LPCTSTR text)>	OnTextAdded = {};
+	std::function<void(LPCTSTR text)>	OnLabelAdded = {};
 	std::function<void(const std::vector<HWND>& handles, const RadioButtonCallback& callback)>	OnRadioGroupAdded = {};
 	std::function<void(HWND handle, const SliderCallback& callback)> OnSliderAdded = {};
 	std::function<void(GuiBuilderImpl* builder, int contentWidth, int contentHeight)>	OnBuild = {};
-
-	HWND	CreateCloseButton(HWND hwnd);
 	HWND	CreateScrollBar(HWND hwnd, int x, int y, int width, int height, int page, int content, bool darkmode);
 
 private:
-	HINSTANCE	instance_ = GetModuleHandle(NULL);
 	HWND		hwnd_ = NULL;
-	RECT		tree_ = {};
 	HDC			hdc_ = {};
-	int			dpi_ = 96;
+	int			x_;
+	int			y_;
+	int			width_;
+	std::unique_ptr<GuiLayout>& layout_;
 };

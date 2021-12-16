@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "App.h"
 #include <wrl.h>
 
@@ -11,15 +10,12 @@
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "windowsapp.lib")
 
-#pragma comment(linker,"\"/manifestdependency:type='win32' \
-name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
-processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
-
 using namespace std;
 using namespace winrt;
 
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdLine, int cmdShow)
 {
+    InitCommonControls();
 	init_apartment(apartment_type::single_threaded);
 
     App app{};

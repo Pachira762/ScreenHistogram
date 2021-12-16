@@ -1,6 +1,6 @@
 #include "AppWindow.h"
 #include "common.h"
-#include "WindowCommon.h"
+#include "WinUtil.h"
 #include "Theme.h"
 #include "OptionPanel.h"
 
@@ -23,8 +23,6 @@ HWND AppWindow::Create(int x, int y, int width, int height, EHistogramMode histo
 {
     HINSTANCE instance = GetModuleHandle(NULL);
 
-    InitCommonControls();
-
     WNDCLASSEX wcex = {};
     wcex.cbSize = sizeof(WNDCLASSEX);
     wcex.style = 0;
@@ -45,7 +43,7 @@ HWND AppWindow::Create(int x, int y, int width, int height, EHistogramMode histo
         x, y, max(width, 480), max(height, 360), NULL, NULL, instance, NULL);
     WINRT_VERIFY(hwnd_);
 
-    auto builder = panel_->Create(hwnd_, GetDpi());
+    auto builder = panel_->Create(hwnd_);
     builder->AddLabel(L"Histogram");
     builder->AddRadioButtons({ L"RGB", L"RGB Brightness", L"Brightness", L"Saturation" }, (int)histogramMode, [this](int index) {
         this->listener_->SetHistogramMode((EHistogramMode)index);
@@ -91,8 +89,9 @@ void AppWindow::KillTimer()
 void AppWindow::CheckTransparency()
 {
     if (transparency_) {
-        auto [x, y] = GetCursorPos();
-        if (NonClientHitTest(hwnd_, x, y, dpi_) != HTCLIENT) {
+        POINT pos{};
+        GetCursorPos(&pos);
+        if (WinUtil::NonClientHitTest(hwnd_, pos.x, pos.y) != HTCLIENT) {
             SetTransparency(false);
         }
     }
@@ -111,15 +110,16 @@ void AppWindow::SetTransparency(bool transparency)
 
 void AppWindow::OnCreate(LPCREATESTRUCT cs)
 {
+    WinUtil::SetDpi(hwnd_);
+
     SetWindowPos(hwnd_, NULL, 0, 0, 0, 0, SWP_NOZORDER | SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED);
     SetLayeredWindowAttributes(hwnd_, 0, 255, LWA_ALPHA);
     SetWindowDisplayAffinity(hwnd_, WDA_EXCLUDEFROMCAPTURE);
 
-    auto size = CloseButtonSize;
-    auto [cw, ch] = GetClientSize(hwnd_);
-    close_ = CreateWindowEx(0, L"BUTTON", L"X", WS_VISIBLE|WS_CHILD|BS_DEFPUSHBUTTON,
-        cw - size, 0, size, size, hwnd_, NULL, GetModuleHandle(NULL), NULL);
-    WINRT_VERIFY(close_);
+    auto size = CaptionSize;
+    auto [cw, ch] = WinUtil::GetClientSize(hwnd_);
+    close_ = WinUtil::Create(L"BUTTON", L"X", WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON, 0,
+       cw - size, 0, size, size, hwnd_, (HMENU)0x100);
 
     timer_ = SetTimer(hwnd_, 1, 100, [](HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime) {
         pThis->CheckTransparency();
@@ -128,26 +128,26 @@ void AppWindow::OnCreate(LPCREATESTRUCT cs)
 
 void AppWindow::OnMove(int x, int y)
 {
-    panel_->Move(x, y);
+    panel_->Move();
 }
 
 void AppWindow::OnSize(int cx, int cy)
 {
-    auto size = CloseButtonSize;
-    SetWindowPos(close_, NULL, cx - size, 0, size, size, SWP_NOZORDER);
+    auto size = CaptionSize;
+    WinUtil::SetWindowPosSize(close_, cx - size, 0, size, size);
 
-    panel_->Size(cx, cy);
+    panel_->Size();
 }
 
 LRESULT AppWindow::OnNcHitTest(int x, int y)
 {
-    const auto hit = NonClientHitTest(hwnd_, x, y, dpi_);
+    const auto hit = WinUtil::NonClientHitTest(hwnd_, x, y);
     if (hit == HTNOWHERE) {
         return HTNOWHERE;
     }
 
-    auto margin = DPISCALE(40, dpi_);
-    auto cx = ScreenToClient(x, y).x;
+    auto margin = 40;
+    auto cx = WinUtil::GetCursorClientPos(hwnd_, x, y).x;
     if (hit == HTCLIENT) {
         if (cx < margin) {
             panel_->Show();
@@ -168,31 +168,41 @@ LRESULT AppWindow::OnNcHitTest(int x, int y)
 
 LRESULT AppWindow::OnCustomDraw(NMCUSTOMDRAW* nmc)
 {
+    if (nmc->hdr.hwndFrom != close_) {
+        return CDRF_SKIPDEFAULT;
+    }
+
     if (nmc->dwDrawStage != CDDS_PREERASE) {
         return CDRF_SKIPDEFAULT;
     }
 
-    auto close = nmc->hdr.hwndFrom;
-    auto [sx, sy] = ClientToScreen(close, 0, 0);
-    auto [cx, cy] = pThis->ScreenToClient(sx, sy);
-    auto [cw, ch] = GetClientSize(close);
+    auto [cx, cy] = WinUtil::GetClientSize(hwnd_);
+    auto size = CaptionSize;
 
     if (auto state = nmc->uItemState; state & CDIS_SELECTED) {
-        listener_->SetCloseButtonState(cx, cy, cw, ch, EButtonState::Pushed);
+        listener_->SetCloseButtonState(cx - size, 0, size, size, EButtonState::Pushed);
     }
     else if (state & CDIS_HOT) {
-        listener_->SetCloseButtonState(cx, cy, cw, ch, EButtonState::Hover);
+        listener_->SetCloseButtonState(cx - size, 0, size, size, EButtonState::Hover);
     }
     else {
-        listener_->SetCloseButtonState(cx, cy, cw, ch, EButtonState::None);
+        listener_->SetCloseButtonState(cx - size, 0, size, size, EButtonState::None);
     }
 
     return CDRF_SKIPDEFAULT;
 }
 
-void AppWindow::OnDpiChanged(int dpiX, int dpiY)
+void AppWindow::OnDpiChanged(int dpiX, int dpiY, RECT* rect)
 {
     listener_->OnDpiChanged(dpiX, dpiY);
+
+    SetWindowPos(hwnd_, NULL, rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top, SWP_NOZORDER | SWP_NOACTIVATE);
+
+    auto [cx, cy] = WinUtil::GetClientSize(hwnd_);
+    auto size = CaptionSize;
+    WinUtil::SetWindowPosSize(close_, cx - size, 0, size, size);
+
+    panel_->Layout();
 }
 
 LRESULT CALLBACK AppWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
@@ -201,27 +211,27 @@ LRESULT CALLBACK AppWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 	case WM_CLOSE:
         pThis->listener_->OnClose();
 		DestroyWindow(hwnd);
-		break;
+        return 0;
 
 	case WM_DESTROY:
         pThis->KillTimer();
         pThis->listener_->OnDestory();
 		PostQuitMessage(0);
-		break;
+        return 0;
 
     case WM_CREATE:
         pThis->hwnd_ = hwnd;
         pThis->OnCreate((LPCREATESTRUCT)lp);
         pThis->listener_->OnCreate(hwnd);
-        break;
+        return 0;
 
     case WM_MOVE:
-        pThis->OnMove(LOWORD(lp), HIWORD(lp));
-        break;
+        pThis->OnMove(WinUtil::Dpi(LOWORD(lp)), WinUtil::Dpi(HIWORD(lp)));
+        return 0;
 
     case WM_SIZE:
-        pThis->OnSize(LOWORD(lp), HIWORD(lp));
-        break;
+        pThis->OnSize(WinUtil::Dpi(LOWORD(lp)), WinUtil::Dpi(HIWORD(lp)));
+        return 0;
 
     case WM_NCHITTEST:
         return pThis->OnNcHitTest(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
@@ -229,13 +239,14 @@ LRESULT CALLBACK AppWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_NCCALCSIZE:
         if (wp) {
             auto& rc = reinterpret_cast<LPNCCALCSIZE_PARAMS>(lp)->rgrc[0];
+            auto frame = WinUtil::GetFrameSizePix();
             rc.top += 1;
-            rc.left += GetSystemMetrics(SM_CXFRAME);
-            rc.right -= GetSystemMetrics(SM_CXFRAME);
-            rc.bottom -= GetSystemMetrics(SM_CYFRAME);
+            rc.left += frame.left;
+            rc.right -= frame.right;
+            rc.bottom -= frame.bottom;
             return 0;
         }
-        return DefWindowProc(hwnd, msg, wp, lp);
+        break;
 
     case WM_ACTIVATEAPP:
         if (wp == 0) {
@@ -255,14 +266,11 @@ LRESULT CALLBACK AppWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         }
         return 0;
 
-    case WM_DPICHANGED: // TODO 
-        pThis->OnDpiChanged(LOWORD(wp), HIWORD(wp));
-        break;
-
-	default:
-		return DefWindowProc(hwnd, msg, wp, lp);
+    case WM_DPICHANGED:
+        pThis->OnDpiChanged(LOWORD(wp), HIWORD(wp), (RECT*)lp);
+        return 0;
 	}
 
-	return 0;
+    return DefWindowProc(hwnd, msg, wp, lp);
 }
 

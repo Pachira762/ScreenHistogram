@@ -1,6 +1,6 @@
 #pragma once
 #include "common.h"
-#include "WindowCommon.h"
+#include "WinUtil.h"
 
 class AppWindowListener
 {
@@ -54,7 +54,7 @@ private:
 	void	OnSize(int cx, int cy);
 	LRESULT	OnNcHitTest(int x, int y);
 	LRESULT	OnCustomDraw(NMCUSTOMDRAW* nmc);
-	void	OnDpiChanged(int dpiX, int dpiY);
+	void	OnDpiChanged(int dpiX, int dpiY, RECT* rect);
 
 	static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 
@@ -64,24 +64,11 @@ public:
 		return hwnd_;
 	}
 
-	RECT	GetRect() const
+	RECT	GetRectPix() const
 	{
 		RECT rc{};
 		GetWindowRect(hwnd_, &rc);
 		return rc;
-	}
-
-	int GetDpi() const {
-		if (auto dpi = GetDpiForWindow(hwnd_); dpi != 0) {
-			return dpi;
-		}
-		else {
-			return GetDpiForSystem();
-		}
-	}
-
-	POINT ScreenToClient(int x, int y) const {
-		return ::ScreenToClient(hwnd_, x, y);
 	}
 };
 

@@ -4,30 +4,28 @@
 #include "PipelineState.h"
 #include "Theme.h"
 #include "dutil.h"
-#include "WindowCommon.h"
 
 using namespace std;
 using namespace winrt;
 
 void ColorPickPass::Init(class Renderer* renderer, int dpiX, int dpiY)
 {
-	hwnd_ = renderer->GetHwnd();
-
-	auto device = renderer->Device();
-
-	staging_ = CreateTexture2D(device, 1, 1, DXGI_FORMAT_B8G8R8A8_UNORM, D3D11_USAGE_STAGING, 0, D3D11_CPU_ACCESS_READ);
-
 	dpiX_ = dpiX;
 	dpiY_ = dpiY;
+
+	auto device = renderer->Device();
+	staging_ = CreateTexture2D(device, 1, 1, DXGI_FORMAT_B8G8R8A8_UNORM, D3D11_USAGE_STAGING, 0, D3D11_CPU_ACCESS_READ);
 }
 
-void ColorPickPass::AddPass(class Renderer* renderer, class PipelineState* state, ID3D11Texture2D* capture, const POINT& screenPos)
+void ColorPickPass::AddPass(class Renderer* renderer, class PipelineState* state, ID3D11Texture2D* capture)
 {
 	if (auto mode = state->ColorPickMode(); mode == EColorPickMode::None) {
 		return;
 	}
 
-	auto color = PickColor(renderer->Context(), capture, screenPos.x, screenPos.y);
+	POINT cursor{};
+	GetCursorPos(&cursor);
+	auto color = PickColor(renderer->Context(), capture, cursor.x, cursor.y);
 
 	auto rt = renderer->D2DRenderTarget();
 
@@ -45,14 +43,8 @@ void ColorPickPass::AddPass(class Renderer* renderer, class PipelineState* state
 	auto mx = 8.f;
 	auto my = 4.f;
 
-	int dpi = dpiX_ == 0 ? 96 : dpiX_;
-
-	auto cw = (state->Width() * 96) / dpi;
-	auto ch = (state->Height() * 96) / dpi;
-
-	auto [cx, cy] = ScreenToClient(hwnd_, screenPos.x, screenPos.y);
-	cx = (cx * 96) / dpiX_;
-	cy = (cy * 96) / dpiY_;
+	auto [cx, cy] = ScreenToClientDpi(renderer->GetHwnd(), cursor);
+	auto [cw, ch] = GetDpiSize(state->Width(), state->Height());
 
 	auto tw = metrix.width;
 	auto th = metrix.height;
@@ -156,4 +148,16 @@ winrt::com_ptr<IDWriteTextLayout> ColorPickPass::GetLayoutedText(IDWriteFactory*
 	layout->GetMetrics(&metrix);
 
 	return layout;
+}
+
+std::tuple<float, float> ColorPickPass::ScreenToClientDpi(HWND hwnd, const POINT& pos)
+{
+	auto p = pos;
+	ScreenToClient(hwnd, &p);
+	return { static_cast<float>((p.x * 96) / dpiX_), static_cast<float>((p.y * 96) / dpiY_)};
+}
+
+std::tuple<float, float> ColorPickPass::GetDpiSize(int width, int height)
+{
+	return { static_cast<float>((width * 96) / dpiX_), static_cast<float>((height * 96) / dpiY_)};
 }
