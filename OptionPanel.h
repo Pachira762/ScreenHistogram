@@ -34,6 +34,7 @@ private:
 
 	HWND	parent_ = NULL;
 	HWND	hwnd_ = NULL;
+	int		scroll_ = 0; // pixel unit
 
 	std::unique_ptr<GuiLayout> layout_;
 	std::vector<Text>	texts_ = {};
@@ -43,8 +44,9 @@ private:
 	std::set<HWND>	customDrawRadioButtons_ = {};
 
 	void	CheckRadioButtons(HWND radio, int index);
-	int		UpdateScrollPage(int page);
-
+	void	UpdateScrollRange(int range);
+	void	UpdateScrollPage(int page);
+	void	ScrollContent(int dy);
 	void	OnCreate(LPCREATESTRUCT cs);
 	void	OnSize(int cx, int cy);
 	void	OnPaint();
@@ -81,37 +83,30 @@ private:
 		si.cbSize = sizeof(si);
 		si.fMask = SIF_POS;
 		GetScrollInfo(hwnd_, SB_VERT, &si);
-		return si.nPos;
+		return WinUtil::Dpi(si.nPos);
 	}
 
 public:
 
 	void Layout()
 	{
-		Size();
+		ScrollContent(-scroll_);	// reset scroll pos
 
 		auto hdc = GetDC(hwnd_);
 		auto [cx, cy] = WinUtil::GetClientSize(hwnd_);
 		layout_->Layout(hdc, cx - MarginX - VScrollWidth);
 		ReleaseDC(hwnd_, hdc);
 
-		SCROLLINFO si{};
+		SCROLLINFO si = {};
 		si.cbSize = sizeof(si);
-		si.fMask = SIF_ALL;
-		GetScrollInfo(hwnd_, SB_VERT, &si);
-
-		ScrollWindowEx(hwnd_, 0, WinUtil::Pix(-si.nPos), nullptr, nullptr, nullptr, nullptr, SW_ERASE | SW_INVALIDATE | SW_SCROLLCHILDREN); // reset scroll
-
-		si.fMask = SIF_RANGE | SIF_PAGE;
+		si.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
+		si.nPos = 0;
 		si.nMin = 0;
-		si.nMax = layout_->Height();
-		si.nPage = WinUtil::GetClientSize(this->hwnd_).cy;
+		si.nMax = WinUtil::Pix(layout_->Height());
+		si.nPage = WinUtil::Pix(WinUtil::GetClientSize(hwnd_).cy);
 		SetScrollInfo(hwnd_, SB_VERT, &si, TRUE);
 
-		si.fMask = SIF_POS;
-		GetScrollInfo(hwnd_, SB_VERT, &si);
-
-		ScrollWindowEx(hwnd_, 0, WinUtil::Pix(si.nPos), nullptr, nullptr, nullptr, nullptr, SW_ERASE | SW_INVALIDATE | SW_SCROLLCHILDREN);
+		InvalidateRect(hwnd_, NULL, TRUE);
 		UpdateWindow(hwnd_);
 	}
 };

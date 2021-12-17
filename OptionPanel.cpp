@@ -72,14 +72,13 @@ std::shared_ptr<IGuiBuilder> OptionPanel::Create(HWND parent)
     };
 
     builder->OnBuild = [this](GuiBuilderImpl* builder, int contentWidth, int contentHeight) {
-        SCROLLINFO si = {};
-        si.cbSize = sizeof(si);
-        si.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
-        si.nMin = 0;
-        si.nMax = contentHeight;
-        si.nPage = WinUtil::GetClientSize(this->hwnd_).cy;
-        si.nPos = 0;
-        SetScrollInfo(this->hwnd_, SB_VERT, &si, TRUE);
+        auto hdc = GetDC(hwnd_);
+        auto [cx, cy] = WinUtil::GetClientSize(hwnd_);
+        layout_->Layout(hdc, cx - MarginX - VScrollWidth);
+        ReleaseDC(hwnd_, hdc);
+
+        UpdateScrollRange(layout_->Height());
+        UpdateScrollPage(WinUtil::GetClientSize(this->hwnd_).cy);
     };
 
 	return builder;
@@ -95,7 +94,26 @@ void OptionPanel::CheckRadioButtons(HWND radio, int index)
     }
 }
 
-int OptionPanel::UpdateScrollPage(int page)
+void OptionPanel::UpdateScrollRange(int range)
+{
+    SCROLLINFO si{};
+    si.cbSize = sizeof(si);
+    si.fMask = SIF_POS;
+    GetScrollInfo(hwnd_, SB_VERT, &si);
+
+    const int pos = si.nPos;
+
+    si.fMask = SIF_RANGE;
+    si.nMax = WinUtil::Pix(range);
+    SetScrollInfo(hwnd_, SB_VERT, &si, TRUE);
+
+    si.fMask = SIF_POS;
+    GetScrollInfo(hwnd_, SB_VERT, &si);
+
+    ScrollContent(pos - si.nPos);
+}
+
+void OptionPanel::UpdateScrollPage(int page)
 {
     SCROLLINFO si{};
     si.cbSize = sizeof(si);
@@ -105,13 +123,20 @@ int OptionPanel::UpdateScrollPage(int page)
     const int pos = si.nPos;
 
     si.fMask = SIF_PAGE;
-    si.nPage = page;
+    si.nPage = WinUtil::Pix(page);
     SetScrollInfo(hwnd_, SB_VERT, &si, TRUE);
 
     si.fMask = SIF_POS;
     GetScrollInfo(hwnd_, SB_VERT, &si);
 
-    return (pos - si.nPos);
+    ScrollContent(pos - si.nPos);
+}
+
+void OptionPanel::ScrollContent(int dy)
+{
+    ScrollWindowEx(hwnd_, 0, dy, nullptr, nullptr, nullptr, nullptr, SW_ERASE | SW_INVALIDATE | SW_SCROLLCHILDREN);
+    UpdateWindow(hwnd_);
+    scroll_ += dy;
 }
 
 void OptionPanel::OnCreate(LPCREATESTRUCT cs)
@@ -128,10 +153,7 @@ void OptionPanel::OnCreate(LPCREATESTRUCT cs)
 
 void OptionPanel::OnSize(int cx, int cy)
 {
-    if (auto dy = UpdateScrollPage(WinUtil::GetClientSize(this->hwnd_).cy); dy != 0) {
-        ScrollWindowEx(hwnd_, 0, WinUtil::Pix(dy), nullptr, nullptr, nullptr, nullptr, SW_ERASE | SW_INVALIDATE | SW_SCROLLCHILDREN);
-        UpdateWindow(hwnd_);
-    }
+    UpdateScrollPage(WinUtil::GetClientSize(this->hwnd_).cy);
 }
 
 void OptionPanel::OnPaint()
@@ -211,8 +233,7 @@ void OptionPanel::OnVScroll(int code, int delta)
         return;
     }
 
-    ScrollWindowEx(hwnd_, 0, WinUtil::Pix(dy), nullptr, nullptr, nullptr, nullptr, SW_ERASE | SW_INVALIDATE | SW_SCROLLCHILDREN);
-    UpdateWindow(hwnd_);
+    ScrollContent(dy);
 }
 
 void OptionPanel::OnCommand(int id, int code, HWND handle)

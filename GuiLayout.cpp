@@ -39,7 +39,6 @@ void GuiText::Layout(int x, int y, int width, int height, HDC hdc)
 	RECT rc = { 0,0,WinUtil::Pix(width),0 };
 	SelectObject(hdc, isLabel_ ? Theme::LabelFont : Theme::TextFont);
 	DrawText(hdc, text_.c_str(), text_.length(), &rc, DT_CALCRECT | (isLabel_ ? DT_SINGLELINE : 0));
-
 	rect_.left = x;
 	rect_.top = y;
 	rect_.right = x + WinUtil::Dpi(rc.right);
