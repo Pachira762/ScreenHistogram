@@ -41,9 +41,9 @@ bool App::Initialize()
 		auto height = config_->WindowHeight.Load(600);
 		auto fps = config_->FrameRate.Load(60);
 
-		auto histogramMode = clamp(config_->HistogramMode.Load(EHistogramMode::RGB), EHistogramMode::RGB, EHistogramMode::Saturation);
-		auto viewMode = clamp(config_->ViewMode.Load(EViewMode::Color), EViewMode::Color, EViewMode::Saturation);
-		auto colorPickMode = clamp(config_->ColorPickMode.Load(EColorPickMode::None), EColorPickMode::None, EColorPickMode::HSV);
+		auto histogramMode = clamp(config_->HistogramMode.Load(EHistogramMode::RGB), EHistogramMode::RGB, EHistogramMode::Brightness);
+		auto viewMode = clamp(config_->ViewMode.Load(EViewMode::Color), EViewMode::Color, EViewMode::SaturationHLS);
+		auto colorPickMode = clamp(config_->ColorPickMode.Load(EColorPickMode::None), EColorPickMode::None, EColorPickMode::HLS);
 		auto maxResolution = config_->MaxResolution.Load(512);
 		auto opacity = config_->Opacity.Load(0.5f);
 		auto scale = config_->Scale.Load(5.f);

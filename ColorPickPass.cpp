@@ -8,6 +8,74 @@
 using namespace std;
 using namespace winrt;
 
+static auto RGB2HSV(uint8_t r, uint8_t g, uint8_t b)
+{
+	auto imax = max(max(r, g), b);
+	auto imin = min(min(r, g), b);
+
+	uint16_t h = 0;
+	float s = imax == 0 ? 0.f : static_cast<float>(imax - imin) / static_cast<float>(imax);
+	float v = static_cast<float>(imax) / 255.f;
+
+	if (imin == imax) {
+		h = 0;
+	}
+	else if (imax == r) {
+		auto d = 60.f * static_cast<float>(g - b) / static_cast<float>(imax - imin);
+		h = static_cast<uint16_t>(d < 0.f ? d + 360.f : d);
+	}
+	else if (imax == g) {
+		auto d = static_cast<uint16_t>(60.f * static_cast<float>(b - r) / static_cast<float>(imax - imin) + 120.f);
+		h = static_cast<uint16_t>(d < 0.f ? d + 360.f : d);
+	}
+	else if (imax == b) {
+		auto d = static_cast<uint16_t>(60.f * static_cast<float>(r - g) / static_cast<float>(imax - imin) + 240.f);
+		h = static_cast<uint16_t>(d < 0.f ? d + 360.f : d);
+	}
+
+	return tuple<int, float, float>{ h, s, v };
+}
+
+static auto RGB2HLS(uint8_t r, uint8_t g, uint8_t b)
+{
+	auto imax = max(max(r, g), b);
+	auto imin = min(min(r, g), b);
+
+	uint16_t h = 0;
+	float l = static_cast<float>(imax + imin) / 510.f;
+	float s = 0.f;
+	if (imax == 0) {
+		s = 0.f;
+	}
+	else if (imin == 255) {
+		s = 1.f;
+	}
+	else if (l < 0.5f) {
+		s = static_cast<float>(imax - imin) / static_cast<float>(imax + imin);
+	}
+	else {
+		s = static_cast<float>(imax - imin) / static_cast<float>(510 - imax - imin);
+	}
+
+	if (imin == imax) {
+		h = 0;
+	}
+	else if (imax == r) {
+		auto d = 60.f * static_cast<float>(g - b) / static_cast<float>(imax - imin);
+		h = static_cast<uint16_t>(d < 0.f ? d + 360.f : d);
+	}
+	else if (imax == g) {
+		auto d = static_cast<uint16_t>(60.f * static_cast<float>(b - r) / static_cast<float>(imax - imin) + 120.f);
+		h = static_cast<uint16_t>(d < 0.f ? d + 360.f : d);
+	}
+	else if (imax == b) {
+		auto d = static_cast<uint16_t>(60.f * static_cast<float>(r - g) / static_cast<float>(imax - imin) + 240.f);
+		h = static_cast<uint16_t>(d < 0.f ? d + 360.f : d);
+	}
+
+	return tuple<int, float, float>{ h, l , s };
+}
+
 void ColorPickPass::Init(class Renderer* renderer, int dpiX, int dpiY)
 {
 	dpiX_ = dpiX;
@@ -88,34 +156,6 @@ uint32_t ColorPickPass::PickColor(ID3D11DeviceContext* context, ID3D11Texture2D*
 	return color;
 }
 
-inline auto RGB2HSV(uint8_t r, uint8_t g, uint8_t b)
-{
-	auto imax = max(max(r, g), b);
-	auto imin = min(min(r, g), b);
-
-	uint16_t h = 0;
-	float s = imax == 0 ? 0.f : static_cast<float>(imax - imin) / static_cast<float>(imax);
-	float v = static_cast<float>(imax) / 255.f;
-
-	if (imin == imax) {
-		h = 0;
-	}
-	else if (imax == r) {
-		auto d = 60.f * static_cast<float>(g - b) / static_cast<float>(imax - imin);
-		h = static_cast<uint16_t>(d < 0.f ? d + 360.f : d);
-	}
-	else if (imax == g) {
-		auto d = static_cast<uint16_t>(60.f * static_cast<float>(b - r) / static_cast<float>(imax - imin) + 120.f);
-		h = static_cast<uint16_t>(d < 0.f ? d + 360.f : d);
-	}
-	else if (imax == b) {
-		auto d = static_cast<uint16_t>(60.f * static_cast<float>(r - g) / static_cast<float>(imax - imin) + 240.f);
-		h = static_cast<uint16_t>(d < 0.f ? d + 360.f : d);
-	}
-
-	return tuple<int, float, float>{ h, s, v };
-}
-
 winrt::com_ptr<IDWriteTextLayout> ColorPickPass::GetLayoutedText(IDWriteFactory* factory, IDWriteTextFormat* textFormat, uint32_t color, EColorPickMode mode)
 {
 	WCHAR text[64] = {};
@@ -133,9 +173,16 @@ winrt::com_ptr<IDWriteTextLayout> ColorPickPass::GetLayoutedText(IDWriteFactory*
 	case EColorPickMode::HSV:
 	{
 		auto [h, s, v] = RGB2HSV(r, g, b);
-		swprintf_s(text, L"HSV: %3uÅã %.0f%% %.0f%%", h, 100.f * s, 100.f * v);
-	}
+		swprintf_s(text, L"HSV: %3u %.0f%% %.0f%%", h, 100.f * s, 100.f * v);
 		break;
+	}
+
+	case EColorPickMode::HLS:
+	{
+		auto [h, l, s] = RGB2HLS(r, g, b);
+		swprintf_s(text, L"HLS: %3u %.0f%% %.0f%%", h, 100.f * s, 100.f * l);
+		break;
+	}
 
 	default:
 		return {};
@@ -143,9 +190,6 @@ winrt::com_ptr<IDWriteTextLayout> ColorPickPass::GetLayoutedText(IDWriteFactory*
 
 	com_ptr<IDWriteTextLayout> layout{};
 	check_hresult(factory->CreateTextLayout(text, (UINT32)wcslen(text), textFormat, 10000, 10000, layout.put()));
-
-	DWRITE_TEXT_METRICS metrix{};
-	layout->GetMetrics(&metrix);
 
 	return layout;
 }

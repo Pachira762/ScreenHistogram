@@ -2,6 +2,13 @@
 #include "common.h"
 #include "WinUtil.h"
 
+enum class EButtonState
+{
+	None,
+	Hover,
+	Pushed,
+};
+
 class AppWindowListener
 {
 public:

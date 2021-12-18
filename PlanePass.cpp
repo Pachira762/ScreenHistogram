@@ -16,7 +16,8 @@ void PlanePass::Init(ID3D11Device* device, PipelineState& state)
 	vs_ = CreateVertexShader(device, IDR_SHADER1, "PlaneVS", elems, _countof(elems), layout_.put());
 	colorPs_ = CreatePixelShader(device, IDR_SHADER1, "ColorPlanePS");
 	brightnessPs_ = CreatePixelShader(device, IDR_SHADER1, "BrightnessPlanePS");
-	saturationPs_ = CreatePixelShader(device, IDR_SHADER1, "SaturationPlanePS");
+	saturationHSVPs_ = CreatePixelShader(device, IDR_SHADER1, "SaturationHSVPlanePS");
+	saturationHLSPs_ = CreatePixelShader(device, IDR_SHADER1, "SaturationHLSPlanePS");
 
 	Vertex vertexs[6] = {
 			{0.f, 0.f},
@@ -48,9 +49,16 @@ void PlanePass::AddPass(ID3D11DeviceContext* context, PipelineState& state)
 		context->PSSetShader(brightnessPs_.get(), nullptr, 0);
 		break;
 
-	case EViewMode::Saturation:
-		context->PSSetShader(saturationPs_.get(), nullptr, 0);
+	case EViewMode::SaturationHSV:
+		context->PSSetShader(saturationHSVPs_.get(), nullptr, 0);
 		break;
+
+	case EViewMode::SaturationHLS:
+		context->PSSetShader(saturationHLSPs_.get(), nullptr, 0);
+		break;
+
+	default:
+		return;
 	}
 
 	context->IASetInputLayout(layout_.get());

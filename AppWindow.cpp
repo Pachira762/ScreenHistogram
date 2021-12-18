@@ -45,27 +45,31 @@ HWND AppWindow::Create(int x, int y, int width, int height, EHistogramMode histo
 
     auto builder = panel_->Create(hwnd_);
     builder->AddLabel(L"Histogram");
-    builder->AddRadioButtons({ L"RGB", L"RGB Brightness", L"Brightness", L"Saturation" }, (int)histogramMode, [this](int index) {
+    builder->AddRadioButtons({ L"RGB", L"RGB Brightness", L"Brightness" }, (int)histogramMode, [this](int index) {
         this->listener_->SetHistogramMode((EHistogramMode)index);
         });
     builder->AddBlank(12);
+
     builder->AddLabel(L"View");
-    builder->AddRadioButtons({ L"Color", L"Brightness", L"Saturation" }, (int)viewMode, [this](int index) {
+    builder->AddRadioButtons({ L"Color", L"Brightness", L"Saturation(HSV)", L"Saturation(HLS)" }, (int)viewMode, [this](int index) {
         this->listener_->SetViewMode((EViewMode)index);
         });
     builder->AddBlank(12);
+
     builder->AddLabel(L"Scale");
     builder->AddSlider(0, 200, 10 * scale, [this](int value) {
         this->listener_->SetScale(0.1f * value);
         });
     builder->AddBlank(12);
+
     builder->AddLabel(L"Opacity");
     builder->AddSlider(0, 100, 100 * opacity, [this](int value) {
         this->listener_->SetOpacity(0.01 * value);
         });
     builder->AddBlank(12);
+
     builder->AddLabel(L"Color Pick");
-    builder->AddRadioButtons({ L"None", L"RGB",L"HSV" }, 0, [this](int value) {
+    builder->AddRadioButtons({ L"None", L"RGB" ,L"HSV" ,L"HLS" }, 0, [this](int value) {
         this->listener_->SetColorPickMode((EColorPickMode)value);
         });
     builder->Build();

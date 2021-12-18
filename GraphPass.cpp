@@ -47,7 +47,7 @@ void GraphPass::AddPass(ID3D11DeviceContext* context, PipelineState& state)
 		break;
 
 	case EHistogramMode::Brightness:
-	case EHistogramMode::Saturation:
+	//case EHistogramMode::Saturation:
 		AddMonoPass(context);
 		AddLinePass(context);
 		break;

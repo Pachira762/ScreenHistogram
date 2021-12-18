@@ -29,14 +29,25 @@ inline float CalcBrightness(const float3 color)
     return dot(float3(0.2126f, 0.7152f, 0.0722f), color);
 }
 
-inline float CalcSaturation(const float3 color)
+inline float CalcHSVSaturation(const float3 color)
 {
     const float imax = max(max(color.r, color.g), color.b);
     const float imin = min(min(color.r, color.g), color.b);
     return imax > 0.f ? ((imax - imin)/imax) : (0.f);
-    //float d = 1.f - abs(imax + imin - 1.f);
-    //float s = (imax - imin) / max(d, 0.00001f);
-    //return saturate(s);
+}
+
+inline float CalcHLSSaturation(const float3 color)
+{
+    const float imax = max(max(color.r, color.g), color.b);
+    const float imin = min(min(color.r, color.g), color.b);
+    const float l = 0.5f * (imax + imin);
+    if (imin == imax) {
+        return l < 0.5f ? 0.f : 1.f;
+    }
+    else {
+        float d = l < 0.5f ? (imax + imin) : (2.f - imax - imin);
+        return (imax - imin) / d;
+    }
 }
 
 //
@@ -73,16 +84,6 @@ void    BrightnessHistogramCS(
     InterlockedAdd(histogramBuffRW[255 * b].a, 1);
 }
 
-[numthreads(8, 8, 1)]
-void    SaturationHistogramCS(
-    in uint3 Id : SV_DispatchThreadID)
-{
-    const float3 c = CaptureTex[WindowPos + Step * Id.xy].rgb;
-    const float s = CalcSaturation(c);
-
-    InterlockedAdd(histogramBuffRW[255 * s].a, 1);
-}
-
 //
 // Plane Pass 
 //
@@ -112,12 +113,21 @@ float4 BrightnessPlanePS(
     return float4(b.xxx, 1.f);
 }
 
-float4 SaturationPlanePS(
+float4 SaturationHSVPlanePS(
     float4 Position : SV_POSITION,
     float2 UV : TEXCOORD) : SV_Target0
 {
     const float3 c = CaptureTex[WindowPos + WindowSize * UV].rgb;
-    const float s = pow(CalcSaturation(c), 1.f / 2.2f);
+    const float s = pow(CalcHSVSaturation(c), 1.f / 2.2f);
+    return float4(s.xxx, 1.f);
+}
+
+float4 SaturationHLSPlanePS(
+    float4 Position : SV_POSITION,
+    float2 UV : TEXCOORD) : SV_Target0
+{
+    const float3 c = CaptureTex[WindowPos + WindowSize * UV].rgb;
+    const float s = pow(CalcHLSSaturation(c), 1.f / 2.2f);
     return float4(s.xxx, 1.f);
 }
 

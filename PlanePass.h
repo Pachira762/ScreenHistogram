@@ -12,6 +12,7 @@ private:
 	winrt::com_ptr<ID3D11VertexShader>	vs_{ nullptr };
 	winrt::com_ptr<ID3D11PixelShader>	colorPs_{ nullptr };
 	winrt::com_ptr<ID3D11PixelShader>	brightnessPs_{ nullptr };
-	winrt::com_ptr<ID3D11PixelShader>	saturationPs_{ nullptr };
+	winrt::com_ptr<ID3D11PixelShader>	saturationHSVPs_{ nullptr };
+	winrt::com_ptr<ID3D11PixelShader>	saturationHLSPs_{ nullptr };
 	winrt::com_ptr<ID3D11Buffer>		vertexBuffer_{ nullptr };
 };

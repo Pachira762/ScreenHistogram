@@ -8,7 +8,7 @@ class Theme
 public:
 	struct Dark
 	{
-		static constexpr DWORD	BgColor = 0x181818;
+		static constexpr DWORD	BgColor = 0x202020;
 		static constexpr DWORD	TextColor = 0xBBBBBB;
 		static constexpr DWORD	AccentTextColor = 0xCCCCCC;
 		static constexpr DWORD	DisableTextColor = 0x606060;

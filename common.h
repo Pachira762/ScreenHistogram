@@ -9,14 +9,16 @@ enum class EHistogramMode
 	RGB,
 	RGBBrightness,
 	Brightness,
-	Saturation,
+	NumMode
 };
 
 enum class EViewMode
 {
 	Color,
 	Brightness,
-	Saturation,
+	SaturationHSV,
+	SaturationHLS,
+	NumMode
 };
 
 enum class EColorPickMode
@@ -24,11 +26,7 @@ enum class EColorPickMode
 	None,
 	RGB,
 	HSV,
+	HLS,
+	NumMode
 };
 
-enum class EButtonState
-{
-	None,
-	Hover,
-	Pushed,
-};

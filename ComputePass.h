@@ -12,6 +12,6 @@ private:
 	winrt::com_ptr<ID3D11ComputeShader>			clearCs_{ nullptr };
 	winrt::com_ptr<ID3D11ComputeShader>			colorHistogramCs_{ nullptr };
 	winrt::com_ptr<ID3D11ComputeShader>			brightnessHistogramCs_{ nullptr };
-	winrt::com_ptr<ID3D11ComputeShader>			saturationHistogramCs_{ nullptr };
+	//winrt::com_ptr<ID3D11ComputeShader>		saturationHistogramCs_{ nullptr };
 	winrt::com_ptr<ID3D11UnorderedAccessView>	histogramUav_{ nullptr };
 };
