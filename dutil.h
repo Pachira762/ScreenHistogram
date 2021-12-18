@@ -168,6 +168,9 @@ inline auto CompileShaderFromResource(LPCTSTR name, LPCSTR entry, LPCSTR target)
     winrt::com_ptr<ID3DBlob> bin = { nullptr }, error = { nullptr };
 
     UINT flag = 0;
+#ifdef _DEBUG
+    flag |= D3DCOMPILE_DEBUG;
+#endif
     auto hr = D3DCompile(src, size, entry, NULL, NULL, entry, target, flag, 0, bin.put(), error.put());
     if (FAILED(hr)) {
         DLOG(L"Failed to Compile Shader\n(%S : %S)\n%S\n", entry, target, error->GetBufferPointer());

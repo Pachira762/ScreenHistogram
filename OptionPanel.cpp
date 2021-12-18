@@ -56,7 +56,7 @@ std::shared_ptr<IGuiBuilder> OptionPanel::Create(HWND parent)
 
     auto [x, y] = CalcFramePos();
     auto [w, h] = CalcFrameSize();
-    hwnd_ = WinUtil::Create(L"ScreenHistogramOptionPanelFrameWnd", NULL, WS_VISIBLE | WS_POPUP | WS_VSCROLL,0,
+    hwnd_ = WinUtil::Create(L"ScreenHistogramOptionPanelFrameWnd", NULL, WS_VISIBLE | WS_POPUP | WS_VSCROLL, WS_EX_LAYERED,
         x, y, w, h, parent);
 
     auto [cx, cy] = WinUtil::GetClientSize(hwnd_);
@@ -134,13 +134,14 @@ void OptionPanel::UpdateScrollPage(int page)
 
 void OptionPanel::ScrollContent(int dy)
 {
+    scroll_ += dy;
     ScrollWindowEx(hwnd_, 0, dy, nullptr, nullptr, nullptr, nullptr, SW_ERASE | SW_INVALIDATE | SW_SCROLLCHILDREN);
     UpdateWindow(hwnd_);
-    scroll_ += dy;
 }
 
 void OptionPanel::OnCreate(LPCREATESTRUCT cs)
 {
+    
     Theme::SetWindowTheme_DarkMode_Explorer(hwnd_);
     Theme::EnableRoundCorner(hwnd_);
    
@@ -148,17 +149,19 @@ void OptionPanel::OnCreate(LPCREATESTRUCT cs)
         Theme::EnableAcrylicWindow(hwnd_);
     }
 
+    SetLayeredWindowAttributes(hwnd_, 0, 255, LWA_ALPHA);
     SetWindowDisplayAffinity(hwnd_, WDA_EXCLUDEFROMCAPTURE);
 }
 
 void OptionPanel::OnSize(int cx, int cy)
 {
-    UpdateScrollPage(WinUtil::GetClientSize(this->hwnd_).cy);
+    auto page = WinUtil::GetClientSize(this->hwnd_).cy;
+    UpdateScrollPage(page);
 }
 
 void OptionPanel::OnPaint()
 {
-    int y = GetScrollPos();
+    int y = WinUtil::Dpi(-scroll_);
 
     PAINTSTRUCT ps{};
     HDC hdc = BeginPaint(hwnd_, &ps);
