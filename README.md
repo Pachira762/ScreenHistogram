@@ -1,10 +1,9 @@
 # ScreenHistogram
 スクリーン上の任意の範囲からヒストグラムが取れるアプリケーションです。  
-https://user-images.githubusercontent.com/34003267/146632369-b383bf44-6d46-4117-833d-ea4afdbc65f1.mp4
-
+![sample](https://user-images.githubusercontent.com/34003267/146632369-b383bf44-6d46-4117-833d-ea4afdbc65f1.mp4)
 
 ## ダウンロード
-https://github.com/Pachira762/ScreenHistogram/releases  
+https://github.com/Pachira762/ScreenHistogram/releases
 
 ## 機能
 RGB, Lumaのヒストグラム  
