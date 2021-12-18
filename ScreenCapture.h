@@ -8,6 +8,7 @@ public:
 		bool	succeeded;
 		bool	mouseUpdated;
 		bool	screenUpdated;
+		bool	protectedContent;
 		UINT	accumulatedFrames;
 		winrt::com_ptr<ID3D11Texture2D> texture;
 	};

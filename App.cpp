@@ -108,19 +108,20 @@ void App::CaptureProcess(HWND hwnd)
 			dpiChangedEver = true;
 		}
 
-		auto cap = capture_->Capture(500);
-		if (!cap.succeeded) {
+		auto result = capture_->Capture(500);
+		if (!result.succeeded) {
+			DrawCloseButton();
 			this_thread::sleep_for(sleepTime);
 			continue;
 		}
 
-		if (!cap.screenUpdated) {
+		if (!result.screenUpdated) {
 			capture_->ReleaseCapture();
 			this_thread::sleep_for(sleepTime);
 			continue;
 		}
 
-		if (!state_->Update(renderer_->Device(), renderer_->Context(), cap.texture)) {
+		if (!state_->Update(renderer_->Device(), renderer_->Context(), result.texture)) {
 			capture_->ReleaseCapture();
 			this_thread::sleep_for(sleepTime);
 			continue;
@@ -131,7 +132,13 @@ void App::CaptureProcess(HWND hwnd)
 		computePass_->AddPass(renderer_->Context(), *state_.get());
 		planePass_->AddPass(renderer_->Context(), *state_.get());
 		graphPass_->AddPass(renderer_->Context(), *state_.get());
-		colorPickPass_->AddPass(renderer_.get(), state_.get(), cap.texture.get());
+		colorPickPass_->AddPass(renderer_.get(), state_.get(), result.texture.get());
+
+		if (result.protectedContent) {
+			wstring text = L"Protected content detected";
+			renderer_->D2DRenderTarget()->DrawTextW(text.c_str(), text.length(), renderer_->DWriteTextFormat(), D2D1::RectF(12, 12, 1000.f, 1000.f), renderer_->D2DFgColorBrush());
+		}
+
 		DrawCloseButton();
 
 		renderer_->EndDraw();

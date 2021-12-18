@@ -396,3 +396,6 @@ FodyWeavers.xsd
 
 # Greenfish Icon Editor Pro
 *.gfie
+
+# INI
+*.ini

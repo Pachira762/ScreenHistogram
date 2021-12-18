@@ -507,7 +507,7 @@ inline auto CreateDWriteFactory(DWRITE_FACTORY_TYPE type = DWRITE_FACTORY_TYPE_S
 inline auto CreateDWriteTextFormat(IDWriteFactory* factory, LPCWSTR fontName, float size = 24.f, DWRITE_FONT_WEIGHT weight = DWRITE_FONT_WEIGHT_REGULAR, DWRITE_FONT_STYLE style = DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH stretch = DWRITE_FONT_STRETCH_NORMAL, LPCWSTR location = nullptr)
 {
     winrt::com_ptr<IDWriteTextFormat> textFormat;
-    winrt::check_hresult(factory->CreateTextFormat(fontName, nullptr, weight,style,stretch, size, location ? location : L"ja-JP", textFormat.put()));
+    winrt::check_hresult(factory->CreateTextFormat(fontName, nullptr, weight,style,stretch, size, location ? location : L"en-us", textFormat.put()));
     return textFormat.as<IDWriteTextFormat3>();
 }
 
