@@ -32,6 +32,12 @@ private:
 		RadioButtonCallback	callback;
 	};
 
+	struct CheckboxGroup
+	{
+		std::vector<HWND>	handles;
+		CheckboxCallback	callback;
+	};
+
 	HWND	parent_ = NULL;
 	HWND	hwnd_ = NULL;
 	int		scroll_ = 0; // pixel unit
@@ -40,10 +46,10 @@ private:
 	std::vector<Text>	texts_ = {};
 	std::vector<Text>	labels_ = {};
 	std::vector<RadioButtonGroup>	radioGroups_ = {};
+	std::vector<CheckboxGroup>		checkboxGroups_ = {};
 	std::map<HWND, SliderCallback>	sliders_ = {};
-	std::set<HWND>	customDrawRadioButtons_ = {};
+	std::set<HWND>	customDrawTargets_ = {};
 
-	void	CheckRadioButtons(HWND radio, int index);
 	void	UpdateScrollRange(int range);
 	void	UpdateScrollPage(int page);
 	void	ScrollContent(int dy);
@@ -53,6 +59,7 @@ private:
 	void	OnHScroll(HWND slider);
 	void	OnVScroll(int code, int delta);
 	void	OnCommand(int id, int code, HWND handle);
+	void	OnButtonClicked(HWND hwnd, int id);
 	LRESULT	OnNotify(DWORD id, NMHDR* hdr);
 	LRESULT	OnCustomDraw(NMCUSTOMDRAW* nmc);
 

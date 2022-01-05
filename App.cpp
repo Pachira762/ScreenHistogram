@@ -42,7 +42,7 @@ bool App::Initialize()
 		auto fps = config_->FrameRate.Load(60);
 
 		auto histogramMode = clamp(config_->HistogramMode.Load(EHistogramMode::RGB), EHistogramMode::RGB, EHistogramMode::Brightness);
-		auto viewMode = clamp(config_->ViewMode.Load(EViewMode::Color), EViewMode::Color, EViewMode::SaturationHLS);
+		auto viewMode = clamp(config_->ViewMode.Load(EViewMode::Color), EViewMode::Color, EViewMode::ColorMask);
 		auto colorPickMode = clamp(config_->ColorPickMode.Load(EColorPickMode::None), EColorPickMode::None, EColorPickMode::HLS);
 		auto maxResolution = config_->MaxResolution.Load(512);
 		auto opacity = config_->Opacity.Load(0.5f);
@@ -135,8 +135,8 @@ void App::CaptureProcess(HWND hwnd)
 		colorPickPass_->AddPass(renderer_.get(), state_.get(), result.texture.get());
 
 		if (result.protectedContent) {
-			wstring text = L"Protected content detected";
-			renderer_->D2DRenderTarget()->DrawTextW(text.c_str(), text.length(), renderer_->DWriteTextFormat(), D2D1::RectF(12, 12, 1000.f, 1000.f), renderer_->D2DFgColorBrush());
+			auto text = L"Protected content detected";
+			renderer_->D2DRenderTarget()->DrawTextW(text, wcslen(text), renderer_->DWriteTextFormat(), D2D1::RectF(12, 12, 1000.f, 1000.f), renderer_->D2DFgColorBrush());
 		}
 
 		DrawCloseButton();
@@ -235,6 +235,11 @@ void App::SetHistogramMode(EHistogramMode mode)
 void App::SetViewMode(EViewMode mode)
 {
 	state_->SetViewMode(mode);
+}
+
+void App::SetColorMask(bool r, bool g, bool b)
+{
+	state_->SetColorMask(r, g, b);
 }
 
 void App::SetScale(float scale)

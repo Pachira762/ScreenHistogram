@@ -51,8 +51,14 @@ HWND AppWindow::Create(int x, int y, int width, int height, EHistogramMode histo
     builder->AddBlank(12);
 
     builder->AddLabel(L"View");
-    builder->AddRadioButtons({ L"Color", L"Brightness", L"Saturation(HSV)", L"Saturation(HLS)" }, (int)viewMode, [this](int index) {
+    builder->AddRadioButtons({ L"Color", L"Brightness", L"Saturation(HSV)", L"Saturation(HLS)", L"Color Mask"}, (int)viewMode, [this](int index) {
         this->listener_->SetViewMode((EViewMode)index);
+        });
+    builder->AddCheckboxes({ L"R", L"G", L"B" }, 0, [this](const std::vector<bool>& checks) {
+        if (checks.size() != 3) {
+            return;
+        }
+        this->listener_->SetColorMask(checks[0], checks[1], checks[2]);
         });
     builder->AddBlank(12);
 

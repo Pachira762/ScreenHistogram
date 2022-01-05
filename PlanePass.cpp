@@ -18,6 +18,8 @@ void PlanePass::Init(ID3D11Device* device, PipelineState& state)
 	brightnessPs_ = CreatePixelShader(device, IDR_SHADER1, "BrightnessPlanePS");
 	saturationHSVPs_ = CreatePixelShader(device, IDR_SHADER1, "SaturationHSVPlanePS");
 	saturationHLSPs_ = CreatePixelShader(device, IDR_SHADER1, "SaturationHLSPlanePS");
+	colorMaskPs_ = CreatePixelShader(device, IDR_SHADER1, "ColorMaskPlanePS");
+	colorMaskGrayPs_ = CreatePixelShader(device, IDR_SHADER1, "ColorMaskGrayPlanePS");
 
 	Vertex vertexs[6] = {
 			{0.f, 0.f},
@@ -32,9 +34,24 @@ void PlanePass::Init(ID3D11Device* device, PipelineState& state)
 	vertexBuffer_ = CreateVertexBuffer(device, 6, sizeof(Vertex), vertexs);
 }
 
+static int NumColorMask(PipelineState& state)
+{
+	auto [r, g, b] = state.ColorMask();
+	int numMask = 0;
+	numMask += static_cast<int>(r);
+	numMask += static_cast<int>(g);
+	numMask += static_cast<int>(b);
+	return numMask;
+}
+
 void PlanePass::AddPass(ID3D11DeviceContext* context, PipelineState& state)
 {
+	auto numMask = NumColorMask(state);
+
 	if (state.ViewMode() == EViewMode::Color) {
+		return;
+	}
+	else if (state.ViewMode() == EViewMode::ColorMask && (numMask == 0 || numMask == 3)) {
 		return;
 	}
 
@@ -55,6 +72,15 @@ void PlanePass::AddPass(ID3D11DeviceContext* context, PipelineState& state)
 
 	case EViewMode::SaturationHLS:
 		context->PSSetShader(saturationHLSPs_.get(), nullptr, 0);
+		break;
+
+	case EViewMode::ColorMask:
+		if (numMask == 1) {
+			context->PSSetShader(colorMaskGrayPs_.get(), nullptr, 0);
+		}
+		else {
+			context->PSSetShader(colorMaskPs_.get(), nullptr, 0);
+		}
 		break;
 
 	default:

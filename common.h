@@ -18,6 +18,7 @@ enum class EViewMode
 	Brightness,
 	SaturationHSV,
 	SaturationHLS,
+	ColorMask,
 	NumMode
 };
 

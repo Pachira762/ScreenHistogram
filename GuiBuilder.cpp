@@ -62,11 +62,26 @@ void GuiBuilderImpl::AddRadioButtons(const std::vector<LPCTSTR>& options, int in
 {
     auto radios = make_unique<GuiRadioButtons>(hwnd_, x_, y_, width_, options, initial);
     y_ += radios->GetSize().cy;
+
     auto handles = radios->GetHandles();
     layout_->AddElement(move(radios));
 
     if (OnRadioGroupAdded) {
         OnRadioGroupAdded(handles, callback);
+    }
+}
+
+void GuiBuilderImpl::AddCheckboxes(const std::vector<LPCTSTR>& options, int initial, const CheckboxCallback& callback)
+{
+    auto checks = make_unique<GuiCheckboxes>(hwnd_, x_, y_, width_, options);
+    y_ += checks->GetSize().cy;
+
+    auto handles = checks->GetHandles();
+
+    layout_->AddElement(move(checks));
+
+    if (OnCheckboxGroupAddes) {
+        OnCheckboxGroupAddes(handles, callback);
     }
 }
 

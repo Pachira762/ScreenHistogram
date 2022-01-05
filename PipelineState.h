@@ -27,7 +27,7 @@ private:
 		float	opacity;
 		float	scale;
 
-		int		padding[3];
+		float	mask[3];
 	};
 	static_assert(sizeof(ConstantVariable) % 16 == 0);
 
@@ -73,9 +73,19 @@ public:
 		return cv_.opacity;
 	}
 
+	void SetOpacity(float opacity) {
+		std::unique_lock<std::mutex> lock(mtx_);
+		cv_.opacity = opacity;
+	}
+
 	float Scale() {
 		std::unique_lock<std::mutex> lock(mtx_);
 		return cv_.scale;
+	}
+
+	void SetScale(float scale) {
+		std::unique_lock<std::mutex> lock(mtx_);
+		cv_.scale = scale;
 	}
 
 	EHistogramMode HistogramMode() {
@@ -83,14 +93,46 @@ public:
 		return histogramMode_;
 	}
 
+	void SetHistogramMode(EHistogramMode mode) {
+		std::unique_lock<std::mutex> lock(mtx_);
+		histogramMode_ = mode;
+	}
+
 	EViewMode ViewMode() {
 		std::unique_lock<std::mutex> lock(mtx_);
 		return viewMode_;
 	}
 
+	void SetViewMode(EViewMode mode) {
+		std::unique_lock<std::mutex> lock(mtx_);
+		viewMode_ = mode;
+	}
+
+	std::tuple<bool, bool, bool> ColorMask(){
+		std::unique_lock<std::mutex> lock(mtx_);
+		return {
+			static_cast<bool>(cv_.mask[0]),
+			static_cast<bool>(cv_.mask[1]),
+			static_cast<bool>(cv_.mask[2])
+		};
+	}
+
+	void SetColorMask(bool r, bool g, bool b)
+	{
+		std::unique_lock<std::mutex> lock(mtx_);
+		cv_.mask[0] = static_cast<float>(r);
+		cv_.mask[1] = static_cast<float>(g);
+		cv_.mask[2] = static_cast<float>(b);
+	}
+
 	EColorPickMode ColorPickMode() {
 		std::unique_lock<std::mutex> lock(mtx_);
 		return colorPickMode_;
+	}
+		
+	void SetColorPickMode(EColorPickMode mode){
+		std::unique_lock<std::mutex> lock(mtx_);
+		colorPickMode_ = mode;
 	}
 
 	std::tuple<int, int, int> NumThreadGroups() {
@@ -101,31 +143,6 @@ public:
 	winrt::com_ptr<ID3D11Buffer> HistogramBuffer() {
 		std::unique_lock<std::mutex> lock(mtx_);
 		return histogramBuffer_;
-	}
-
-	void SetOpacity(float opacity) {
-		std::unique_lock<std::mutex> lock(mtx_);
-		cv_.opacity = opacity;
-	}
-
-	void SetScale(float scale) {
-		std::unique_lock<std::mutex> lock(mtx_);
-		cv_.scale = scale;
-	}
-
-	void SetHistogramMode(EHistogramMode mode) {
-		std::unique_lock<std::mutex> lock(mtx_);
-		histogramMode_ = mode;
-	}
-
-	void SetViewMode(EViewMode mode) {
-		std::unique_lock<std::mutex> lock(mtx_);
-		viewMode_ = mode;
-	}
-
-	void SetColorPickMode(EColorPickMode mode){
-		std::unique_lock<std::mutex> lock(mtx_);
-		colorPickMode_ = mode;
 	}
 
 	void SetMaxResolution(int resolution) {

@@ -53,6 +53,7 @@ private:
 
 	virtual void	SetHistogramMode(EHistogramMode mode)override;
 	virtual void	SetViewMode(EViewMode mode)override;
+	virtual void	SetColorMask(bool r, bool g, bool b)override;
 	virtual void	SetScale(float scale)override;
 	virtual void	SetOpacity(float opacity)override;
 	virtual void	SetColorPickMode(EColorPickMode mode)override;

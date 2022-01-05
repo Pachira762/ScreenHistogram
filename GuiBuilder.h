@@ -1,6 +1,7 @@
 #pragma once
 
 using RadioButtonCallback = std::function<void(int id)>;
+using CheckboxCallback = std::function<void(std::vector<bool>& checked)>;
 using SliderCallback = std::function<void(int value)>;
 
 class IGuiBuilder
@@ -13,6 +14,7 @@ public:
 	virtual void	AddText(LPCTSTR text) = 0;
 	virtual void	AddLabel(LPCTSTR label) = 0;
 	virtual void	AddRadioButtons(const std::vector<LPCTSTR>& options, int initial, const RadioButtonCallback& callback) = 0;
+	virtual void	AddCheckboxes(const std::vector<LPCTSTR>& options, int initial, const CheckboxCallback& callback) = 0;
 	virtual void	AddSlider(int min, int max, int initial, const SliderCallback& callback) = 0;
 
 protected:
@@ -32,12 +34,14 @@ public:
 	virtual void	AddText(LPCTSTR text)override;
 	virtual void	AddLabel(LPCTSTR label)override;
 	virtual void	AddRadioButtons(const std::vector<LPCTSTR>& options, int initial, const RadioButtonCallback& callback)override;
+	virtual void	AddCheckboxes(const std::vector<LPCTSTR>& options, int initial, const CheckboxCallback& callback)override;
 	virtual void	AddSlider(int min, int max, int initial, const SliderCallback& callback)override;
 
 public:
 	std::function<void(LPCTSTR text)>	OnTextAdded = {};
 	std::function<void(LPCTSTR text)>	OnLabelAdded = {};
 	std::function<void(const std::vector<HWND>& handles, const RadioButtonCallback& callback)>	OnRadioGroupAdded = {};
+	std::function<void(const std::vector<HWND>& handles, const CheckboxCallback& callback)>		OnCheckboxGroupAddes = {};
 	std::function<void(HWND handle, const SliderCallback& callback)> OnSliderAdded = {};
 	std::function<void(GuiBuilderImpl* builder, int contentWidth, int contentHeight)>	OnBuild = {};
 	HWND	CreateScrollBar(HWND hwnd, int x, int y, int width, int height, int page, int content, bool darkmode);

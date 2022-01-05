@@ -54,8 +54,26 @@ private:
 	std::vector<HWND>	radios_ = {};
 
 public:
-	const std::vector<HWND>&	GetHandles() const {
+	std::vector<HWND>	GetHandles() const {
 		return radios_;
+	}
+};
+
+//
+// Checkbox
+//
+class GuiCheckboxes : public GuiElement
+{
+public:
+	GuiCheckboxes(HWND parent, int x, int y, int width, std::vector<LPCTSTR> options);
+	virtual void	Layout(int x, int y, int width, int height, HDC hdc)override;
+
+private:
+	std::vector<HWND>	checkboxes_ = {};
+
+public:
+	std::vector<HWND> GetHandles() const {
+		return checkboxes_;
 	}
 };
 

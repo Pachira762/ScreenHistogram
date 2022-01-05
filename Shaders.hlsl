@@ -12,7 +12,7 @@ cbuffer ConstantValues : register(b0) {
     float   Opacity;
     float   Scale;
 
-    int3    Padding;
+    float3  Mask;
 };
 
 SamplerState Sampler : register(s0);
@@ -129,6 +129,22 @@ float4 SaturationHLSPlanePS(
     const float3 c = CaptureTex[WindowPos + WindowSize * UV].rgb;
     const float s = pow(CalcHLSSaturation(c), 1.f / 2.2f);
     return float4(s.xxx, 1.f);
+}
+
+float4 ColorMaskPlanePS(
+    float4 Position : SV_POSITION,
+    float2 UV : TEXCOORD) : SV_Target0
+{
+    const float3 c = CaptureTex[WindowPos + WindowSize * UV].rgb;
+    return float4(c * Mask, 1.f);
+}
+
+float4 ColorMaskGrayPlanePS(
+    float4 Position : SV_POSITION,
+    float2 UV : TEXCOORD) : SV_Target0
+{
+    const float3 c = CaptureTex[WindowPos + WindowSize * UV].rgb;
+    return float4(dot(c, Mask).xxx, 1.f);
 }
 
 //

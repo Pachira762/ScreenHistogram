@@ -96,6 +96,40 @@ void GuiRadioButtons::Layout(int x, int y, int width, int height, HDC hdc)
 }
 
 //
+// CheckBox
+//
+GuiCheckboxes::GuiCheckboxes(HWND parent, int x, int y, int width, std::vector<LPCTSTR> options)
+{
+	rect_.left = x;
+	rect_.top = y;
+	rect_.right = 20 + x + 40 * options.size();
+	rect_.bottom = y + 40;
+
+	for (int i = 0; i < options.size(); ++i) {
+		HWND checkbox = WinUtil::Create(L"BUTTON", options[i], WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX, 0,
+			20 + x + i * 60, y, 40, 40, parent, (HMENU)i);
+		WINRT_VERIFY(checkbox);
+
+		SendMessage(checkbox, WM_SETFONT, (WPARAM)Theme::TextFont, TRUE);
+		SendMessage(checkbox, BM_SETCHECK, TRUE, TRUE);
+
+		checkboxes_.push_back(checkbox);
+	}
+}
+
+void GuiCheckboxes::Layout(int x, int y, int width, int height, HDC hdc)
+{
+	rect_.left = x;
+	rect_.top = y;
+	rect_.right = 20 + x + 40 * checkboxes_.size();
+	rect_.bottom = y + 40;
+
+	for (int i = 0; i < checkboxes_.size(); ++i) {
+		WinUtil::SetWindowPosSize(checkboxes_[i], 20 + x + i * 40, y, 40, 40);
+	}
+}
+
+//
 // Slider
 //
 GuiSlider::GuiSlider(HWND parent, int x, int y, int width, int min, int max, int value)

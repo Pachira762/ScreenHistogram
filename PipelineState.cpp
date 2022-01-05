@@ -46,6 +46,9 @@ PipelineState::PipelineState()
 	cv_.invNumCel = 1.f;
 	cv_.opacity = 1.f;
 	cv_.scale = 1.f;
+	cv_.mask[0] = 1.f;
+	cv_.mask[1] = 1.f;
+	cv_.mask[2] = 1.f;
 }
 
 PipelineState::~PipelineState()

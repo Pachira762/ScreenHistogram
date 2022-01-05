@@ -64,7 +64,12 @@ std::shared_ptr<IGuiBuilder> OptionPanel::Create(HWND parent)
 
     builder->OnRadioGroupAdded = [this](const std::vector<HWND>& handles, const RadioButtonCallback& callback) {
         radioGroups_.push_back(RadioButtonGroup{ handles, callback });
-        customDrawRadioButtons_.insert(handles.begin(), handles.end());
+        customDrawTargets_.insert(handles.begin(), handles.end());
+    };
+
+    builder->OnCheckboxGroupAddes = [this](const std::vector<HWND>& handles, const CheckboxCallback& callback) {
+        checkboxGroups_.push_back(CheckboxGroup{ handles, callback });
+        customDrawTargets_.insert(handles.begin(), handles.end());
     };
 
     builder->OnSliderAdded = [this](HWND handle, const SliderCallback& callback) {
@@ -82,16 +87,6 @@ std::shared_ptr<IGuiBuilder> OptionPanel::Create(HWND parent)
     };
 
 	return builder;
-}
-
-void OptionPanel::CheckRadioButtons(HWND radio, int index)
-{
-    for (const auto&[radios, callback] : radioGroups_) {
-        if (index < radios.size() && radio == radios.at(index) && callback) {
-            callback(index);
-            return;
-        }
-    }
 }
 
 void OptionPanel::UpdateScrollRange(int range)
@@ -243,8 +238,46 @@ void OptionPanel::OnCommand(int id, int code, HWND handle)
 {
     switch (code) {
     case BN_CLICKED:
-        CheckRadioButtons(handle, id);
+        OnButtonClicked(handle, id);
         break;
+    }
+}
+
+static bool IsInGroup(std::vector<HWND>& group, HWND hwnd, int index)
+{
+    if (index < group.size() && hwnd == group.at(index)) {
+        return true;
+    }
+
+    return false;
+}
+
+void OptionPanel::OnButtonClicked(HWND hwnd, int id)
+{
+    for (auto& [radios, callback] : radioGroups_) {
+        if (!callback) {
+            continue;
+        }
+
+        if (IsInGroup(radios, hwnd, id)) {
+            callback(id);
+            return;
+        }
+    }
+
+    for (auto& [checkboxes, callback] : checkboxGroups_) {
+        if (!callback) {
+            continue;
+        }
+
+        if (IsInGroup(checkboxes, hwnd, id)) {
+            vector<bool> checked{};
+            for (auto& checkbox : checkboxes) {
+                checked.push_back(static_cast<bool>(SendMessage(checkbox, BM_GETCHECK, 0, 0)));
+            }
+            callback(checked);
+            return;
+        }
     }
 }
 
@@ -264,7 +297,7 @@ LRESULT OptionPanel::OnCustomDraw(NMCUSTOMDRAW* nmc)
     static TCHAR buff[256];
     const auto hwnd = nmc->hdr.hwndFrom;
 
-    if (customDrawRadioButtons_.find(hwnd) != customDrawRadioButtons_.end()) {
+    if (customDrawTargets_.find(hwnd) != customDrawTargets_.end()) {
         if (nmc->dwDrawStage == CDDS_PREERASE) {
             return CDRF_NOTIFYPOSTERASE;
         }

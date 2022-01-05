@@ -24,6 +24,7 @@ public:
 
 	virtual void	SetHistogramMode(EHistogramMode mode) = 0;
 	virtual void	SetViewMode(EViewMode mode) = 0;
+	virtual void	SetColorMask(bool r, bool g, bool b) = 0;
 	virtual void	SetScale(float scale) = 0;
 	virtual void	SetOpacity(float opacity) = 0;
 	virtual void	SetColorPickMode(EColorPickMode mode) = 0;
